@@ -1,454 +1,321 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Inteligente - Reparaciones Jaén</title>
-    <!-- Tailwind CSS para Estructura de Diseño de Última Generación -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- Chart.js para Visualizaciones Gráficas -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- CryptoJS para Desencriptación AES-256 de Extremo a Extremo -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <!-- PapaParse para el procesamiento ultra rápido de archivos CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Incidencias AVRA Jaén</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root{
+    --bg:#f5f4f0; --card:#ffffff; --border:#e3e1d9; --text:#1f1e1c; --text-sec:#6b6a64; --text-ter:#9c9a92;
+    --info:#185fa5; --info-bg:#e6f1fb; --success:#0f6e56; --success-bg:#e1f5ee;
+    --warning:#854f0b; --warning-bg:#faeeda; --danger:#a32d2d; --danger-bg:#fcebeb;
+    --purple:#534ab7;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; padding:20px;}
+  .wrap{max-width:1100px; margin:0 auto;}
+  .header{display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:20px;}
+  .header h1{font-size:20px; font-weight:600; margin:0;}
+  .header p{font-size:13px; color:var(--text-sec); margin:4px 0 0;}
+  #statusLine{font-size:12px; color:var(--text-ter); margin-top:4px;}
+  #statusLine.error{color:var(--danger);}
+  button{display:flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; color:var(--text);}
+  button:hover{background:#f0efe9;}
+  button:active{transform:scale(0.98);}
+  .metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:20px;}
+  .metric{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px;}
+  .metric p.label{font-size:12px; color:var(--text-sec); margin:0 0 6px;}
+  .metric p.value{font-size:24px; font-weight:600; margin:0;}
+  .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-bottom:14px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px;}
+  .card p.title{font-size:13px; color:var(--text-sec); margin:0 0 10px;}
+  .chartbox{position:relative; height:220px;}
+  .chartbox.tall{height:340px;}
+  .legend{display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; font-size:12px; color:var(--text-sec); justify-content:center;}
+  .legend span{display:flex; align-items:center; gap:4px;}
+  .dot{width:10px; height:10px; border-radius:2px; display:inline-block;}
+  table{width:100%; font-size:12px; border-collapse:collapse;}
+  th{text-align:left; color:var(--text-sec); font-weight:500; padding:4px 0;}
+  td{padding:6px 0; border-top:1px solid var(--border);}
+  .placeholder{text-align:center; padding:40px 20px; color:var(--text-sec);}
+</style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased">
+<body>
+<div class="wrap">
 
-    <!-- PANTALLA DE CONTROL DE ACCESO (Crypto Barrier) -->
-    <div id="login-screen" class="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center z-50 px-4">
-        <!-- Tarjeta de Acceso con Efecto de Profundidad y Cristal -->
-        <div class="bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-slate-800 max-w-md w-full text-center relative overflow-hidden">
-            <div class="absolute -top-10 -left-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl"></div>
-            <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
-            
-            <div class="mb-5 text-emerald-400 text-6xl flex justify-center drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">🔒</div>
-            <h2 class="text-3xl font-extrabold text-white tracking-tight mb-2">Acceso Seguro</h2>
-            <p class="text-slate-400 text-sm mb-6">El archivo operativo de Jaén se almacena encriptado para la protección de datos corporativos. Introduce la llave AES de descifrado.</p>
-            
-            <div class="space-y-4">
-                <input type="password" id="secret-key" placeholder="Introduce la clave maestra" class="w-full px-5 py-4 bg-slate-950 border border-slate-800 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all text-center tracking-widest font-mono text-lg">
-                <button onclick="desbloquearYProcesar()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-emerald-950/50 cursor-pointer active:scale-[0.98]">Validar y Cargar Dashboard</button>
-            </div>
-            
-            <p id="login-error" class="text-rose-400 text-xs mt-4 font-semibold hidden flex items-center justify-center gap-1">
-                <span>❌</span> Credenciales incorrectas o datos corruptos.
-            </p>
-        </div>
+  <div class="header">
+    <div>
+      <h1>AVRA Jaén · Incidencias de inmuebles</h1>
+      <p>Dashboard en vivo conectado al Excel de OneDrive vía Power Automate</p>
+      <p id="statusLine">Cargando datos...</p>
+    </div>
+    <button id="refreshBtn"><span>&#8635;</span>Actualizar</button>
+  </div>
+
+  <div id="content">
+    <div class="placeholder">Cargando datos del Gist...</div>
+  </div>
+
+</div>
+
+<script>
+const GIST_RAW_URL = "https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
+const REFRESH_MS = 5 * 60 * 1000;
+
+const PALETTE = {
+  pendientePresupuesto: {fill:'#BA7517', bg:'var(--warning-bg)'},
+  presupuestoAprobado: {fill:'#1D9E75', bg:'var(--success-bg)'},
+  pendienteAprobacion: {fill:'#378ADD', bg:'var(--info-bg)'},
+  noProcede: {fill:'#E24B4A', bg:'var(--danger-bg)'},
+  ejecutado: {fill:'#1D9E75'},
+  enEjecucion: {fill:'#378ADD'},
+  facturado: {fill:'#534AB7'},
+  serveo: {fill:'#7F77DD'},
+  ceion: {fill:'#D85A30'},
+  otro: {fill:'#D4537E'}
+};
+
+let charts = [];
+
+function destroyCharts(){
+  charts.forEach(c => c.destroy());
+  charts = [];
+}
+
+function normEstado(s){
+  if(!s) return 'Sin estado';
+  s = String(s).trim().toUpperCase();
+  if(s.includes('NO PROCEDE')) return 'No procede';
+  if(s.includes('PENDIENTE PRESUPUESTO')) return 'Pendiente presupuesto';
+  if(s.includes('PENDIENTE APROBACION') || s.includes('PENDIENTE APROBACIÓN')) return 'Pendiente aprobación';
+  if(s.includes('PRESUPUESTO APROBADO')) return 'Presupuesto aprobado';
+  return s;
+}
+
+function normProveedor(p){
+  if(!p) return 'Sin asignar';
+  p = String(p).trim().toUpperCase();
+  if(p.includes('CEION') && p.includes('ALGUACIL')) return 'CEION-Adán Alguacil';
+  if(p.includes('CEION')) return 'CEION';
+  if(p.includes('SERVEO')) return 'SERVEO';
+  return p;
+}
+
+function parseImporte(v){
+  if(v === null || v === undefined || v === '') return 0;
+  if(typeof v === 'number') return v;
+  const n = parseFloat(String(v).replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3})/g,'').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+
+function excelDateToJs(serial){
+  if(!serial && serial !== 0) return null;
+  const n = typeof serial === 'number' ? serial : parseFloat(serial);
+  if(isNaN(n) || n < 1) return null;
+  return new Date(Math.round((n - 25569) * 86400 * 1000));
+}
+
+function findKey(row, candidates){
+  const keys = Object.keys(row);
+  for(const c of candidates){
+    const k = keys.find(k => k.toUpperCase().replace(/[\s\n]+/g,' ').trim().includes(c));
+    if(k) return k;
+  }
+  return null;
+}
+
+function buildDonut(canvasId, legendId, data){
+  const ctx = document.getElementById(canvasId);
+  const chart = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:data.map(d=>d.label),
+      datasets:[{data:data.map(d=>d.value), backgroundColor:data.map(d=>d.color), borderWidth:0}]
+    },
+    options:{responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{legend:{display:false}}}
+  });
+  charts.push(chart);
+  const total = data.reduce((s,d)=>s+d.value,0) || 1;
+  document.getElementById(legendId).innerHTML = data.map(d=>
+    `<span><span class="dot" style="background:${d.color}"></span>${d.label} ${d.value} (${Math.round(d.value/total*100)}%)</span>`
+  ).join('');
+}
+
+function render(rows){
+  destroyCharts();
+
+  if(!rows || rows.length === 0){
+    document.getElementById('content').innerHTML = '<div class="placeholder">El Gist todavía no tiene datos (array vacío). En cuanto Power Automate publique las filas del Excel, aparecerán aquí automáticamente.</div>';
+    return;
+  }
+
+  const sample = rows[0];
+  const kEstado = findKey(sample, ['ESTADO SERVEO', 'ESTADO']);
+  const kProveedor = findKey(sample, ['PROVEEDOR']);
+  const kMunicipio = findKey(sample, ['MUNICIPIO']);
+  const kImporte = findKey(sample, ['BASE PRESUPUESTO SERVEO', 'PRESUPUESTO SERVEO', 'TOTAL', 'PRESUPUESTO']);
+  const kEstadoObra = findKey(sample, ['ESTADO OBRA']);
+  const kExpediente = findKey(sample, ['NUMERO DE EXPEDIENTE', 'EXPEDIENTE']);
+  const kFechaPeticion = findKey(sample, ['FECHA DE PETICION DE PRESUPUESTO', 'FECHA PETICION']);
+  const kFechaAprobado = findKey(sample, ['APROBADO POR AVRA']);
+
+  const total = rows.length;
+  const estadoCounts = {};
+  const proveedorCounts = {};
+  const municipioTotals = {};
+  const obraCounts = {};
+  let sumaImporte = 0;
+  const expedientesConImporte = [];
+  const tiemposTramitacion = [];
+
+  rows.forEach(r => {
+    const estado = normEstado(kEstado ? r[kEstado] : null);
+    estadoCounts[estado] = (estadoCounts[estado]||0) + 1;
+
+    const prov = normProveedor(kProveedor ? r[kProveedor] : null);
+    proveedorCounts[prov] = (proveedorCounts[prov]||0) + 1;
+
+    const importe = kImporte ? parseImporte(r[kImporte]) : 0;
+    sumaImporte += importe;
+
+    if(kMunicipio && r[kMunicipio] && importe > 0){
+      const m = String(r[kMunicipio]).trim();
+      municipioTotals[m] = (municipioTotals[m]||0) + importe;
+    }
+
+    if(kEstadoObra && r[kEstadoObra]){
+      const eo = String(r[kEstadoObra]).trim().toUpperCase();
+      const label = eo.includes('FACTURADO') ? 'Facturado'
+                  : eo.includes('EN EJECUCION') || eo.includes('EN EJECUCIÓN') ? 'En ejecución'
+                  : eo.includes('EJECUTADO') ? 'Ejecutado'
+                  : eo;
+      obraCounts[label] = (obraCounts[label]||0) + 1;
+    }
+
+    if(kExpediente && importe > 0){
+      expedientesConImporte.push({exp: r[kExpediente], val: importe});
+    }
+
+    if(kFechaPeticion && kFechaAprobado && r[kFechaPeticion] && r[kFechaAprobado]){
+      const d1 = excelDateToJs(r[kFechaPeticion]);
+      const d2 = excelDateToJs(r[kFechaAprobado]);
+      if(d1 && d2 && d2 >= d1){
+        tiemposTramitacion.push(Math.round((d2 - d1) / 86400000));
+      }
+    }
+  });
+
+  expedientesConImporte.sort((a,b)=>b.val-a.val);
+  const topExp = expedientesConImporte.slice(0,5);
+
+  const municipiosArr = Object.entries(municipioTotals).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+
+  const estadoOrder = ['Pendiente presupuesto','Presupuesto aprobado','Pendiente aprobación','No procede'];
+  const estadoColors = {'Pendiente presupuesto':PALETTE.pendientePresupuesto.fill,'Presupuesto aprobado':PALETTE.presupuestoAprobado.fill,'Pendiente aprobación':PALETTE.pendienteAprobacion.fill,'No procede':PALETTE.noProcede.fill};
+  const estadoData = Object.entries(estadoCounts)
+    .sort((a,b)=> estadoOrder.indexOf(a[0]) - estadoOrder.indexOf(b[0]))
+    .map(([label,value])=>({label, value, color: estadoColors[label] || '#888780'}));
+
+  const provColors = {'SERVEO':PALETTE.serveo.fill,'CEION':PALETTE.ceion.fill};
+  const proveedorData = Object.entries(proveedorCounts).map(([label,value])=>({label, value, color: provColors[label] || PALETTE.otro.fill}));
+
+  const obraColors = {'Ejecutado':PALETTE.ejecutado.fill,'En ejecución':PALETTE.enEjecucion.fill,'Facturado':PALETTE.facturado.fill};
+  const obraData = Object.entries(obraCounts).map(([label,value])=>({label, value, color: obraColors[label] || '#888780'}));
+
+  const aprobadas = estadoCounts['Presupuesto aprobado'] || 0;
+  const pendientePpto = estadoCounts['Pendiente presupuesto'] || 0;
+  const pendienteAprob = estadoCounts['Pendiente aprobación'] || 0;
+  const noProcede = estadoCounts['No procede'] || 0;
+  const tiempoMedio = tiemposTramitacion.length
+    ? Math.round(tiemposTramitacion.reduce((a,b)=>a+b,0) / tiemposTramitacion.length)
+    : null;
+
+  document.getElementById('content').innerHTML = `
+    <div class="metrics">
+      <div class="metric"><p class="label">Total incidencias</p><p class="value">${total}</p></div>
+      <div class="metric"><p class="label">Aprobadas</p><p class="value" style="color:var(--success)">${aprobadas}</p></div>
+      <div class="metric"><p class="label">Pdte. presupuesto</p><p class="value" style="color:var(--warning)">${pendientePpto}</p></div>
+      <div class="metric"><p class="label">Pdte. aprobación</p><p class="value" style="color:var(--info)">${pendienteAprob}</p></div>
+      <div class="metric"><p class="label">No procede</p><p class="value" style="color:var(--danger)">${noProcede}</p></div>
+      <div class="metric"><p class="label">Importe total</p><p class="value">€ ${Math.round(sumaImporte).toLocaleString('es-ES')}</p></div>
+      ${tiempoMedio !== null ? `<div class="metric"><p class="label">Días medios tramitación</p><p class="value">${tiempoMedio}</p></div>` : ''}
     </div>
 
-    <!-- ESTRUCTURA PRINCIPAL DEL DASHBOARD -->
-    <div id="dashboard-layout" class="hidden min-h-screen flex flex-col">
-        
-        <!-- Barra de Navegación Superior -->
-        <header class="bg-slate-900/90 border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center border border-emerald-500/30">
-                    <span class="text-emerald-400 font-bold">📊</span>
-                </div>
-                <div>
-                    <h1 class="text-xl font-black text-white tracking-tight">SATE — Jaén</h1>
-                    <p class="text-slate-400 text-xs font-semibold">Sistema Analítico de Tramitación de Expedientes</p>
-                </div>
-            </div>
-            
-            <!-- Barra de Controles y Filtros Rápidos -->
-            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-                <!-- Buscador Universal -->
-                <input type="text" id="busqueda-filtro" oninput="filtrarDatos()" placeholder="Buscar por expediente o municipio..." class="px-4 py-2 bg-slate-950 border border-slate-850 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500 w-full sm:w-64">
-                
-                <!-- Toggle de Casos Urgentes -->
-                <label class="flex items-center gap-2 bg-slate-950 border border-slate-850 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 cursor-pointer select-none">
-                    <input type="checkbox" id="urgente-filtro" onchange="filtrarDatos()" class="accent-rose-500 h-4 w-4 rounded border-slate-800 bg-slate-950">
-                    Solo Prioritarios
-                </label>
-
-                <!-- Selector de Proveedor -->
-                <div class="flex bg-slate-950 border border-slate-850 p-1 rounded-xl">
-                    <button onclick="cambiarProveedor('TODOS')" id="btn-TODOS" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white transition-all cursor-pointer">Todos</button>
-                    <button onclick="cambiarProveedor('SERVEO')" id="btn-SERVEO" class="px-3 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer">Serveo</button>
-                    <button onclick="cambiarProveedor('CEION')" id="btn-CEION" class="px-3 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer">Ceion</button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Panel de Trabajo Analítico -->
-        <main class="flex-1 p-6 space-y-6 max-w-[1700px] mx-auto w-full">
-            
-            <!-- TARJETAS ANALÍTICAS (METRICAS CLAVE / KPIS) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Tarjeta 1 -->
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-850 shadow-sm hover:border-slate-800 transition-all flex items-center justify-between">
-                    <div>
-                        <p class="text-slate-400 text-xs uppercase tracking-wider font-bold">Expedientes Activos</p>
-                        <h3 id="kpi-total" class="text-3xl font-black text-white mt-1">--</h3>
-                    </div>
-                    <span class="text-3xl bg-blue-500/10 p-3 rounded-xl text-blue-400">📂</span>
-                </div>
-                <!-- Tarjeta 2 -->
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-850 shadow-sm hover:border-slate-800 transition-all flex items-center justify-between">
-                    <div>
-                        <p class="text-slate-400 text-xs uppercase tracking-wider font-bold">Presupuesto Estimado</p>
-                        <h3 id="kpi-presupuesto" class="text-3xl font-black text-emerald-400 mt-1">-- €</h3>
-                    </div>
-                    <span class="text-3xl bg-emerald-500/10 p-3 rounded-xl text-emerald-400">💰</span>
-                </div>
-                <!-- Tarjeta 3 -->
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-850 shadow-sm hover:border-slate-800 transition-all flex items-center justify-between">
-                    <div>
-                        <p class="text-slate-400 text-xs uppercase tracking-wider font-bold">Margen Bruto Promedio</p>
-                        <h3 id="kpi-margen" class="text-3xl font-black text-cyan-400 mt-1">-- %</h3>
-                    </div>
-                    <span class="text-3xl bg-cyan-500/10 p-3 rounded-xl text-cyan-400">📈</span>
-                </div>
-                <!-- Tarjeta 4 -->
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-850 shadow-sm hover:border-slate-800 transition-all flex items-center justify-between">
-                    <div>
-                        <p class="text-slate-400 text-xs uppercase tracking-wider font-bold">Acciones Prioritarias</p>
-                        <h3 id="kpi-urgentes" class="text-3xl font-black text-rose-400 mt-1">--</h3>
-                    </div>
-                    <span class="text-3xl bg-rose-500/10 p-3 rounded-xl text-rose-400">🔥</span>
-                </div>
-            </div>
-
-            <!-- SECCIÓN DE GRÁFICOS INTERACTIVOS (3 Gráficos Avanzados) -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Gráfico 1: Estado de las obras -->
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-850 flex flex-col justify-between">
-                    <div>
-                        <h4 class="text-sm font-bold text-white tracking-tight uppercase text-slate-300">Embudo de Estados Operativos</h4>
-                        <p class="text-slate-500 text-xs mb-4">Distribución del flujo de trabajo general</p>
-                    </div>
-                    <div class="h-64 flex items-center justify-center">
-                        <canvas id="chartEstados"></canvas>
-                    </div>
-                </div>
-                
-                <!-- Gráfico 2: Cuota de Asignación Financiera -->
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-850 flex flex-col justify-between">
-                    <div>
-                        <h4 class="text-sm font-bold text-white tracking-tight uppercase text-slate-300">Inversión por Contrata</h4>
-                        <p class="text-slate-500 text-xs mb-4">Comparativa de volumen presupuestario</p>
-                    </div>
-                    <div class="h-64 flex items-center justify-center">
-                        <canvas id="chartProveedores"></canvas>
-                    </div>
-                </div>
-
-                <!-- Gráfico 3: Top Municipios (Gráfico Adicional Recomendado) -->
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-850 flex flex-col justify-between">
-                    <div>
-                        <h4 class="text-sm font-bold text-white tracking-tight uppercase text-slate-300">Concentración por Municipio (Top 5)</h4>
-                        <p class="text-slate-500 text-xs mb-4">Localidades con mayor carga operativa</p>
-                    </div>
-                    <div class="h-64 flex items-center justify-center">
-                        <canvas id="chartMunicipios"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TABLA OPERATIVA PRINCIPAL -->
-            <div class="bg-slate-900 rounded-2xl border border-slate-850 overflow-hidden shadow-2xl">
-                <div class="px-6 py-4 border-b border-slate-850 bg-slate-900/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                    <div>
-                        <h4 class="text-base font-bold text-white">Listado General del Plan de Reparaciones</h4>
-                        <p class="text-slate-500 text-xs">Datos procesados en tiempo de ejecución (Limitado a visualización óptima)</p>
-                    </div>
-                    <div class="text-xs text-slate-400 font-mono bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-                        Total Mostrados: <span id="tabla-contador" class="text-emerald-400 font-bold">0</span>
-                    </div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs text-slate-300">
-                        <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-850">
-                            <tr>
-                                <th class="p-4 font-bold">Expediente</th>
-                                <th class="p-4 font-bold">Municipio</th>
-                                <th class="p-4 font-bold">Contenido Reclamación</th>
-                                <th class="p-4 font-bold">Proveedor</th>
-                                <th class="p-4 font-bold">Estado Obra</th>
-                                <th class="p-4 font-bold">Prioritario</th>
-                                <th class="p-4 font-bold text-right">Presupuesto</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-cuerpo" class="divide-y divide-slate-850/50">
-                            <!-- Inyección dinámica de datos -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </main>
+    <div class="grid2">
+      <div class="card">
+        <p class="title">Estado de las incidencias</p>
+        <div class="chartbox"><canvas id="estadoChart"></canvas></div>
+        <div class="legend" id="estadoLegend"></div>
+      </div>
+      <div class="card">
+        <p class="title">Estado de obra</p>
+        <div class="chartbox"><canvas id="obraChart"></canvas></div>
+        <div class="legend" id="obraLegend"></div>
+      </div>
     </div>
 
-    <!-- CÓDIGO OPERATIVO Y ANALÍTICO -->
-    <script>
-        let datosOriginales = [];
-        let proveedorActivo = 'TODOS';
-        
-        // Instancias para reinicialización de gráficos
-        let chartEstados = null;
-        let chartProveedores = null;
-        let chartMunicipios = null;
+    <div class="card" style="margin-bottom:14px;">
+      <p class="title">Importe por municipio (incidencias con presupuesto)</p>
+      <div class="chartbox tall"><canvas id="municipioChart"></canvas></div>
+    </div>
 
-        // Función Principal de Inicialización y Descarga
-        function desbloquearYProcesar() {
-            const password = document.getElementById('secret-key').value;
-            const errorLabel = document.getElementById('login-error');
+    <div class="grid2">
+      <div class="card">
+        <p class="title">Proveedor asignado</p>
+        <div class="chartbox"><canvas id="proveedorChart"></canvas></div>
+        <div class="legend" id="proveedorLegend"></div>
+      </div>
+      <div class="card">
+        <p class="title">Top expedientes por importe</p>
+        <table>
+          <thead><tr><th>Expediente</th><th style="text-align:right;">Importe</th></tr></thead>
+          <tbody>${topExp.map(t=>`<tr><td>${t.exp}</td><td style="text-align:right; font-weight:600;">€ ${Number(t.val).toLocaleString('es-ES',{minimumFractionDigits:2})}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
 
-            if (!password) {
-                alert("Por favor, introduce la clave maestra.");
-                return;
-            }
+  if(estadoData.length) buildDonut('estadoChart','estadoLegend', estadoData);
+  if(obraData.length) buildDonut('obraChart','obraLegend', obraData);
+  if(proveedorData.length) buildDonut('proveedorChart','proveedorLegend', proveedorData);
 
-            // Descargar el archivo cifrado generado por el Script de Windows
-            fetch('datos.enc')
-                .then(response => {
-                    if (!response.ok) throw new Error("No se encuentra el archivo 'datos.enc' en la raíz.");
-                    return response.text();
-                })
-                .then(contenidoCifrado => {
-                    try {
-                        // Derivación determinista de Clave y Vector de Inicialización (IV) idéntica a PowerShell
-                        const key = CryptoJS.SHA256(password);
-                        const iv = CryptoJS.enc.Hex.parse(CryptoJS.SHA256(password).toString().substring(0, 32));
+  if(municipiosArr.length){
+    const ctx = document.getElementById('municipioChart');
+    const chart = new Chart(ctx, {
+      type:'bar',
+      data:{labels:municipiosArr.map(m=>m.name), datasets:[{label:'Importe', data:municipiosArr.map(m=>Math.round(m.value)), backgroundColor:'#7F77DD'}]},
+      options:{indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>'€ '+c.parsed.x.toLocaleString('es-ES')}}},
+        scales:{x:{ticks:{callback:v=>'€'+v.toLocaleString('es-ES')}}}}
+    });
+    charts.push(chart);
+  }
+}
 
-                        // Desencriptación del archivo
-                        const descifrado = CryptoJS.AES.decrypt(contenidoCifrado, key, { iv: iv });
-                        const csvTexto = descifrado.toString(CryptoJS.enc.Utf8);
-                        
-                        if (!csvTexto || csvTexto.length < 10) throw new Error("Descifrado incorrecto");
+async function loadData(){
+  const statusEl = document.getElementById('statusLine');
+  statusEl.classList.remove('error');
+  statusEl.textContent = 'Actualizando...';
+  try{
+    const res = await fetch(GIST_RAW_URL + '?t=' + Date.now());
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    render(Array.isArray(json) ? json : (json.value || []));
+    const now = new Date();
+    statusEl.textContent = 'Última actualización: ' + now.toLocaleString('es-ES');
+  }catch(err){
+    statusEl.classList.add('error');
+    statusEl.textContent = 'Error al cargar datos: ' + err.message + '. Comprueba que el Gist tiene datos y que la URL raw es correcta.';
+    if(!document.getElementById('estadoChart')){
+      document.getElementById('content').innerHTML = '<div class="placeholder">No se han podido cargar los datos todavía.<br>Revisa que el flujo de Power Automate ha publicado el JSON en el Gist.</div>';
+    }
+  }
+}
 
-                        // Conversión del CSV a JSON
-                        Papa.parse(csvTexto, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: function(results) {
-                                datosOriginales = results.data;
-                                // Cambio de Interfaz
-                                document.getElementById('login-screen').classList.add('hidden');
-                                document.getElementById('dashboard-layout').classList.remove('hidden');
-                                renderizarDashboard();
-                            }
-                        });
-                    } catch (e) {
-                        errorLabel.classList.remove('hidden');
-                        console.error("Error de descifrado:", e);
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert("Error al cargar los datos encriptados. Verifica que 'datos.enc' existe en la carpeta.");
-                });
-        }
-
-        // Procesador y Gestor de Visualizaciones
-        function renderizarDashboard() {
-            const busqueda = document.getElementById('busqueda-filtro').value.toLowerCase();
-            const prioritario = document.getElementById('urgente-filtro').checked;
-
-            // Filtrado de matrices según variables activas
-            let filtrados = datosOriginales.filter(row => {
-                // Filtro Proveedor
-                if (proveedorActivo !== 'TODOS' && (!row['PROVEEDOR'] || row['PROVEEDOR'].toUpperCase() !== proveedorActivo)) {
-                    return false;
-                }
-                // Filtro Prioritarios
-                if (prioritario && (!row['PRIORITARIO'] || row['PRIORITARIO'].toUpperCase() !== 'SI')) {
-                    return false;
-                }
-                // Filtro Texto
-                if (busqueda) {
-                    const idExp = (row['NUMERO DE EXPEDIENTE'] || '').toLowerCase();
-                    const mun = (row['MUNICIPIO'] || '').toLowerCase();
-                    const recl = (row['CONTENIDO RECLAMACIÓN'] || '').toLowerCase();
-                    if (!idExp.includes(busqueda) && !mun.includes(busqueda) && !recl.includes(busqueda)) {
-                        return false;
-                    }
-                }
-                return true;
-            });
-
-            // Análisis Numérico de Datos (Métricas KPIs)
-            let totalCasos = filtrados.length;
-            let sumaPresupuestos = 0;
-            let sumaMargen = 0;
-            let countMargen = 0;
-            let totalPrioritarios = 0;
-
-            let estadosContador = {};
-            let proveedoresPresupuesto = {};
-            let municipiosContador = {};
-
-            filtrados.forEach(row => {
-                // Cálculo unificado de presupuestos según asignación de contrata
-                let presS = parseFloat(row['BASE PRESUPUESTO SERVEO']) || 0;
-                let presC = parseFloat(row['BASE PRESUPUESTO CEION']) || 0;
-                let presFinal = presS + presC;
-                sumaPresupuestos += presFinal;
-
-                // Sumatorio de Márgenes de Contrato
-                let m = parseFloat(row['% MARGEN BRUTO POR OFERTA']) || 0;
-                if (m > 0) {
-                    sumaMargen += m;
-                    countMargen++;
-                }
-
-                // Contingencias Urgentes
-                if (row['PRIORITARIO'] && row['PRIORITARIO'].toUpperCase() === 'SI') {
-                    totalPrioritarios++;
-                }
-
-                // Clasificación de Estados Operativos
-                let est = row['ESTADO OBRA'] || 'SIN INICIAR';
-                estadosContador[est] = (estadosContador[est] || 0) + 1;
-
-                // Asignaciones por Contratistas
-                let prov = row['PROVEEDOR'] || 'POR DETERMINAR';
-                proveedoresPresupuesto[prov] = (proveedoresPresupuesto[prov] || 0) + presFinal;
-
-                // Densidad Operativa por Municipios
-                let mun = row['MUNICIPIO'] || 'JAEN';
-                municipiosContador[mun] = (municipiosContador[mun] || 0) + 1;
-            });
-
-            // Impresión de Métricas Analíticas
-            document.getElementById('kpi-total').innerText = totalCasos;
-            document.getElementById('kpi-presupuesto').innerText = sumaPresupuestos.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-            document.getElementById('kpi-margen').innerText = countMargen > 0 ? ((sumaMargen / countMargen) * 100).toFixed(1) + ' %' : '0.0 %';
-            document.getElementById('kpi-urgentes').innerText = totalPrioritarios;
-            document.getElementById('tabla-contador').innerText = totalCasos;
-
-            // Renderizado de Gráficas de Control
-            renderizarGraficos(estadosContador, proveedoresPresupuesto, municipiosContador);
-
-            // Carga de la Tabla Dinámica
-            const tbody = document.getElementById('tabla-cuerpo');
-            tbody.innerHTML = '';
-            
-            filtrados.forEach(row => {
-                let pS = parseFloat(row['BASE PRESUPUESTO SERVEO']) || 0;
-                let pC = parseFloat(row['BASE PRESUPUESTO CEION']) || 0;
-                let finalPres = pS + pC;
-
-                let esPrioritario = row['PRIORITARIO'] && row['PRIORITARIO'].toUpperCase() === 'SI';
-                let tagPrioridad = esPrioritario 
-                    ? `<span class="bg-rose-500/20 text-rose-400 px-2.5 py-1 rounded-md font-bold text-[10px]">SI</span>` 
-                    : `<span class="text-slate-600 font-bold">-</span>`;
-
-                let fila = `
-                    <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-850/30">
-                        <td class="p-4 font-mono font-bold text-emerald-400">${row['NUMERO DE EXPEDIENTE'] || 'S/N'}</td>
-                        <td class="p-4 font-semibold text-white">${row['MUNICIPIO'] || '--'}</td>
-                        <td class="p-4 max-w-sm truncate text-slate-400" title="${row['CONTENIDO RECLAMACIÓN'] || ''}">${row['CONTENIDO RECLAMACIÓN'] || '--'}</td>
-                        <td class="p-4 font-semibold"><span class="px-2 py-1 bg-slate-950 rounded border border-slate-800 text-slate-300 text-[10px]">${row['PROVEEDOR'] || '--'}</span></td>
-                        <td class="p-4 font-medium text-amber-400 text-[11px]">${row['ESTADO OBRA'] || 'PENDIENTE'}</td>
-                        <td class="p-4">${tagPrioridad}</td>
-                        <td class="p-4 text-right font-black text-white">${finalPres.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                    </tr>
-                `;
-                tbody.innerHTML += fila;
-            });
-        }
-
-        // Renderizado del Motor Gráfico de Chart.js
-        function renderizarGraficos(estados, proveedores, municipios) {
-            // Destrucción de instancias previas para evitar solapamientos
-            if (chartEstados) chartEstados.destroy();
-            if (chartProveedores) chartProveedores.destroy();
-            if (chartMunicipios) chartMunicipios.destroy();
-
-            // Gráfico 1: Estados Operativos (Horizontal Bar)
-            const ctx1 = document.getElementById('chartEstados').getContext('2d');
-            chartEstados = new Chart(ctx1, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(estados),
-                    datasets: [{
-                        data: Object.values(estados),
-                        backgroundColor: '#10b981',
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8', font: { size: 9 } } },
-                        y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 9 } } }
-                    }
-                }
-            });
-
-            // Gráfico 2: Cuota Financiera (Doughnut)
-            const ctx2 = document.getElementById('chartProveedores').getContext('2d');
-            chartProveedores = new Chart(ctx2, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(proveedores),
-                    datasets: [{
-                        data: Object.values(proveedores),
-                        backgroundColor: ['#06b6d4', '#f59e0b', '#6366f1', '#ec4899'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12, font: { size: 10 } } }
-                    }
-                }
-            });
-
-            // Gráfico 3: Top 5 Municipios con más incidencias
-            const sortedMunicipios = Object.entries(municipios)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5);
-
-            const ctx3 = document.getElementById('chartMunicipios').getContext('2d');
-            chartMunicipios = new Chart(ctx3, {
-                type: 'bar',
-                data: {
-                    labels: sortedMunicipios.map(m => m[0]),
-                    datasets: [{
-                        data: sortedMunicipios.map(m => m[1]),
-                        backgroundColor: '#6366f1',
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 9 } } },
-                        y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8', font: { size: 9 } } }
-                    }
-                }
-            });
-        }
-
-        // Filtrado Interactivo de Proveedores
-        function cambiarProveedor(prov) {
-            proveedorActivo = prov;
-            ['TODOS', 'SERVEO', 'CEION'].forEach(p => {
-                const btn = document.getElementById(`btn-${p}`);
-                if (p === prov) {
-                    btn.className = "px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white transition-all cursor-pointer";
-                } else {
-                    btn.className = "px-3 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer";
-                }
-            });
-            renderizarDashboard();
-        }
-
-        // Lanzar filtro por inputs
-        function filtrarDatos() {
-            renderizarDashboard();
-        }
-    </script>
+document.getElementById('refreshBtn').addEventListener('click', loadData);
+loadData();
+setInterval(loadData, REFRESH_MS);
+</script>
 </body>
 </html>
