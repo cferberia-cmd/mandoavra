@@ -8,9 +8,7 @@
 <style>
   :root{
     --bg:#f5f4f0; --card:#ffffff; --border:#e3e1d9; --text:#1f1e1c; --text-sec:#6b6a64; --text-ter:#9c9a92;
-    --info:#185fa5; --info-bg:#e6f1fb; --success:#0f6e56; --success-bg:#e1f5ee;
-    --warning:#854f0b; --warning-bg:#faeeda; --danger:#a32d2d; --danger-bg:#fcebeb;
-    --purple:#534ab7;
+    --info:#185fa5; --success:#0f6e56; --warning:#854f0b; --danger:#a32d2d; --purple:#534ab7;
   }
   *{box-sizing:border-box;}
   body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; padding:20px;}
@@ -22,11 +20,11 @@
   #statusLine.error{color:var(--danger);}
   button{display:flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; color:var(--text);}
   button:hover{background:#f0efe9;}
-  button:active{transform:scale(0.98);}
   .metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:20px;}
   .metric{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px;}
   .metric p.label{font-size:12px; color:var(--text-sec); margin:0 0 6px;}
   .metric p.value{font-size:24px; font-weight:600; margin:0;}
+  .metric p.sub{font-size:11px; color:var(--text-ter); margin:4px 0 0;}
   .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-bottom:14px;}
   .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px;}
   .card p.title{font-size:13px; color:var(--text-sec); margin:0 0 10px;}
@@ -38,105 +36,93 @@
   table{width:100%; font-size:12px; border-collapse:collapse;}
   th{text-align:left; color:var(--text-sec); font-weight:500; padding:4px 0;}
   td{padding:6px 0; border-top:1px solid var(--border);}
+  .badge{display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:500;}
+  .badge.danger{background:#fcebeb; color:var(--danger);}
   .placeholder{text-align:center; padding:40px 20px; color:var(--text-sec);}
 </style>
 </head>
 <body>
 <div class="wrap">
-
   <div class="header">
     <div>
       <h1>AVRA Jaén · Incidencias de inmuebles</h1>
-      <p>Dashboard en vivo conectado al Excel de OneDrive vía Power Automate</p>
+      <p>Dashboard en vivo · Excel OneDrive → Power Automate → Gist → aquí</p>
       <p id="statusLine">Cargando datos...</p>
     </div>
-    <button id="refreshBtn"><span>&#8635;</span>Actualizar</button>
+    <button id="refreshBtn">&#8635; Actualizar</button>
   </div>
-
-  <div id="content">
-    <div class="placeholder">Cargando datos del Gist...</div>
-  </div>
-
+  <div id="content"><div class="placeholder">Cargando datos del Gist...</div></div>
 </div>
 
 <script>
-const GIST_RAW_URL = "https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
+const GIST_RAW = "https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
 const REFRESH_MS = 5 * 60 * 1000;
-
-const PALETTE = {
-  pendientePresupuesto: {fill:'#BA7517', bg:'var(--warning-bg)'},
-  presupuestoAprobado: {fill:'#1D9E75', bg:'var(--success-bg)'},
-  pendienteAprobacion: {fill:'#378ADD', bg:'var(--info-bg)'},
-  noProcede: {fill:'#E24B4A', bg:'var(--danger-bg)'},
-  ejecutado: {fill:'#1D9E75'},
-  enEjecucion: {fill:'#378ADD'},
-  facturado: {fill:'#534AB7'},
-  serveo: {fill:'#7F77DD'},
-  ceion: {fill:'#D85A30'},
-  otro: {fill:'#D4537E'}
-};
-
 let charts = [];
 
-function destroyCharts(){
-  charts.forEach(c => c.destroy());
-  charts = [];
-}
-
-function normEstado(s){
-  if(!s) return 'Sin estado';
-  s = String(s).trim().toUpperCase();
-  if(s.includes('NO PROCEDE')) return 'No procede';
-  if(s.includes('PENDIENTE PRESUPUESTO')) return 'Pendiente presupuesto';
-  if(s.includes('PENDIENTE APROBACION') || s.includes('PENDIENTE APROBACIÓN')) return 'Pendiente aprobación';
-  if(s.includes('PRESUPUESTO APROBADO')) return 'Presupuesto aprobado';
-  return s;
-}
-
-function normProveedor(p){
-  if(!p) return 'Sin asignar';
-  p = String(p).trim().toUpperCase();
-  if(p.includes('CEION') && p.includes('ALGUACIL')) return 'CEION-Adán Alguacil';
-  if(p.includes('CEION')) return 'CEION';
-  if(p.includes('SERVEO')) return 'SERVEO';
-  return p;
-}
-
-function parseImporte(v){
-  if(v === null || v === undefined || v === '') return 0;
-  if(typeof v === 'number') return v;
-  const n = parseFloat(String(v).replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3})/g,'').replace(',', '.'));
-  return isNaN(n) ? 0 : n;
-}
-
-function excelDateToJs(serial){
-  if(!serial && serial !== 0) return null;
-  const n = typeof serial === 'number' ? serial : parseFloat(serial);
-  if(isNaN(n) || n < 1) return null;
-  return new Date(Math.round((n - 25569) * 86400 * 1000));
-}
+function destroyCharts(){ charts.forEach(c=>c.destroy()); charts=[]; }
+function norm(s){ return s ? String(s).trim().toUpperCase().replace(/[\s\n]+/g,' ') : ''; }
 
 function findKey(row, candidates){
   const keys = Object.keys(row);
   for(const c of candidates){
-    const k = keys.find(k => k.toUpperCase().replace(/[\s\n]+/g,' ').trim().includes(c));
+    const k = keys.find(k => norm(k).includes(c));
     if(k) return k;
   }
   return null;
 }
 
-function buildDonut(canvasId, legendId, data){
-  const ctx = document.getElementById(canvasId);
-  const chart = new Chart(ctx, {
+function parseNum(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  const n = parseFloat(String(v).replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3})/g,'').replace(',','.'));
+  return isNaN(n)?0:n;
+}
+
+function excelDate(serial){
+  const n = typeof serial==='number'?serial:parseFloat(serial);
+  if(isNaN(n)||n<1) return null;
+  return new Date(Math.round((n-25569)*86400*1000));
+}
+
+function fmtDate(serial){
+  const d = excelDate(serial);
+  if(!d) return '—';
+  return d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+
+function normEstado(s){
+  s = norm(s);
+  if(s.includes('NO PROCEDE')) return 'No procede';
+  if(s.includes('PENDIENTE PRESUPUESTO')) return 'Pendiente presupuesto';
+  if(s.includes('PENDIENTE APROBACION')||s.includes('PENDIENTE APROBACIÓN')) return 'Pendiente aprobación';
+  if(s.includes('PRESUPUESTO APROBADO')) return 'Presupuesto aprobado';
+  return s||'Sin estado';
+}
+
+function normObra(s){
+  s = norm(s);
+  if(s.includes('FACTURADO')) return 'Facturado';
+  if(s.includes('EN EJECUCION')||s.includes('EN EJECUCIÓN')) return 'En ejecución';
+  if(s.includes('EJECUTADO')) return 'Ejecutado';
+  return s||null;
+}
+
+function normProv(s){
+  s = norm(s);
+  if(s.includes('CEION')&&s.includes('ALGUACIL')) return 'CEION-Adán Alguacil';
+  if(s.includes('CEION')) return 'CEION';
+  if(s.includes('SERVEO')) return 'SERVEO';
+  return s||'Sin asignar';
+}
+
+function buildDonut(id, legendId, data){
+  const total = data.reduce((s,d)=>s+d.value,0)||1;
+  const c = new Chart(document.getElementById(id),{
     type:'doughnut',
-    data:{
-      labels:data.map(d=>d.label),
-      datasets:[{data:data.map(d=>d.value), backgroundColor:data.map(d=>d.color), borderWidth:0}]
-    },
+    data:{labels:data.map(d=>d.label), datasets:[{data:data.map(d=>d.value), backgroundColor:data.map(d=>d.color), borderWidth:0}]},
     options:{responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{legend:{display:false}}}
   });
-  charts.push(chart);
-  const total = data.reduce((s,d)=>s+d.value,0) || 1;
+  charts.push(c);
   document.getElementById(legendId).innerHTML = data.map(d=>
     `<span><span class="dot" style="background:${d.color}"></span>${d.label} ${d.value} (${Math.round(d.value/total*100)}%)</span>`
   ).join('');
@@ -144,178 +130,158 @@ function buildDonut(canvasId, legendId, data){
 
 function render(rows){
   destroyCharts();
-
-  if(!rows || rows.length === 0){
-    document.getElementById('content').innerHTML = '<div class="placeholder">El Gist todavía no tiene datos (array vacío). En cuanto Power Automate publique las filas del Excel, aparecerán aquí automáticamente.</div>';
+  if(!rows||!rows.length){
+    document.getElementById('content').innerHTML='<div class="placeholder">El Gist todavía no tiene datos. En cuanto Power Automate publique las filas del Excel, aparecerán aquí.</div>';
     return;
   }
 
-  const sample = rows[0];
-  const kEstado = findKey(sample, ['ESTADO SERVEO', 'ESTADO']);
-  const kProveedor = findKey(sample, ['PROVEEDOR']);
-  const kMunicipio = findKey(sample, ['MUNICIPIO']);
-  const kImporte = findKey(sample, ['BASE PRESUPUESTO SERVEO', 'PRESUPUESTO SERVEO', 'TOTAL', 'PRESUPUESTO']);
-  const kEstadoObra = findKey(sample, ['ESTADO OBRA']);
-  const kExpediente = findKey(sample, ['NUMERO DE EXPEDIENTE', 'EXPEDIENTE']);
-  const kFechaPeticion = findKey(sample, ['FECHA DE PETICION DE PRESUPUESTO', 'FECHA PETICION']);
-  const kFechaAprobado = findKey(sample, ['APROBADO POR AVRA']);
+  const s = rows[0];
+  const kExp   = findKey(s,['NUMERO DE EXPEDIENTE','EXPEDIENTE']);
+  const kEst   = findKey(s,['ESTADO SERVEO','ESTADO']);
+  const kProv  = findKey(s,['PROVEEDOR']);
+  const kMun   = findKey(s,['MUNICIPIO']);
+  const kBase  = findKey(s,['BASE PRESUPUESTO SERVEO']);
+  const kTotal = findKey(s,['TOTAL']);
+  const kObra  = findKey(s,['ESTADO OBRA']);
+  const kFPet  = findKey(s,['FECHA DE PETICION DE PRESUPUESTO','FECHA PETICION']);
+  const kFApr  = findKey(s,['FECHA APROBACION AVRA','APROBADO POR AVRA']);
+  const kFCon  = findKey(s,['FECHA CONFORMIDAD']);
+  const kPenal = findKey(s,['PENALIZACION','PENALIZACIÓN']);
+  const kPrior = findKey(s,['PRIORITARIO']);
 
-  const total = rows.length;
-  const estadoCounts = {};
-  const proveedorCounts = {};
-  const municipioTotals = {};
-  const obraCounts = {};
-  let sumaImporte = 0;
-  const expedientesConImporte = [];
-  const tiemposTramitacion = [];
+  const estCounts={}, provCounts={}, munTotals={}, obraCounts={};
+  let sumaBase=0, sumaTotal=0, sumaPenal=0, nPenal=0, nPrior=0;
+  const tiempos=[], expList=[];
 
-  rows.forEach(r => {
-    const estado = normEstado(kEstado ? r[kEstado] : null);
-    estadoCounts[estado] = (estadoCounts[estado]||0) + 1;
+  rows.forEach(r=>{
+    const estado = normEstado(kEst?r[kEst]:null);
+    estCounts[estado]=(estCounts[estado]||0)+1;
 
-    const prov = normProveedor(kProveedor ? r[kProveedor] : null);
-    proveedorCounts[prov] = (proveedorCounts[prov]||0) + 1;
+    const prov = normProv(kProv?r[kProv]:null);
+    provCounts[prov]=(provCounts[prov]||0)+1;
 
-    const importe = kImporte ? parseImporte(r[kImporte]) : 0;
-    sumaImporte += importe;
+    const base  = parseNum(kBase?r[kBase]:0);
+    const total = parseNum(kTotal?r[kTotal]:0);
+    const penal = parseNum(kPenal?r[kPenal]:0);
+    sumaBase+=base; sumaTotal+=total;
+    if(penal>0){ sumaPenal+=penal; nPenal++; }
+    if(kPrior && r[kPrior] && norm(r[kPrior])!=='') nPrior++;
 
-    if(kMunicipio && r[kMunicipio] && importe > 0){
-      const m = String(r[kMunicipio]).trim();
-      municipioTotals[m] = (municipioTotals[m]||0) + importe;
+    if(kMun && r[kMun] && base>0){
+      const m=String(r[kMun]).trim();
+      munTotals[m]=(munTotals[m]||0)+base;
     }
-
-    if(kEstadoObra && r[kEstadoObra]){
-      const eo = String(r[kEstadoObra]).trim().toUpperCase();
-      const label = eo.includes('FACTURADO') ? 'Facturado'
-                  : eo.includes('EN EJECUCION') || eo.includes('EN EJECUCIÓN') ? 'En ejecución'
-                  : eo.includes('EJECUTADO') ? 'Ejecutado'
-                  : eo;
-      obraCounts[label] = (obraCounts[label]||0) + 1;
+    if(kObra && r[kObra]){
+      const label=normObra(r[kObra]);
+      if(label) obraCounts[label]=(obraCounts[label]||0)+1;
     }
-
-    if(kExpediente && importe > 0){
-      expedientesConImporte.push({exp: r[kExpediente], val: importe});
+    if(kFPet && kFApr && r[kFPet] && r[kFApr]){
+      const d1=excelDate(r[kFPet]), d2=excelDate(r[kFApr]);
+      if(d1&&d2&&d2>=d1) tiempos.push(Math.round((d2-d1)/86400000));
     }
-
-    if(kFechaPeticion && kFechaAprobado && r[kFechaPeticion] && r[kFechaAprobado]){
-      const d1 = excelDateToJs(r[kFechaPeticion]);
-      const d2 = excelDateToJs(r[kFechaAprobado]);
-      if(d1 && d2 && d2 >= d1){
-        tiemposTramitacion.push(Math.round((d2 - d1) / 86400000));
-      }
+    if(kExp && (base>0||total>0)){
+      expList.push({ exp:r[kExp], base, conf:kFCon?r[kFCon]:null, penal });
     }
   });
 
-  expedientesConImporte.sort((a,b)=>b.val-a.val);
-  const topExp = expedientesConImporte.slice(0,5);
+  expList.sort((a,b)=>b.base-a.base);
+  const top5 = expList.slice(0,5);
+  const munArr = Object.entries(munTotals).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+  const tiempoMedio = tiempos.length?Math.round(tiempos.reduce((a,b)=>a+b,0)/tiempos.length):null;
 
-  const municipiosArr = Object.entries(municipioTotals).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+  const ECOLORS={'Pendiente presupuesto':'#BA7517','Presupuesto aprobado':'#1D9E75','Pendiente aprobación':'#378ADD','No procede':'#E24B4A'};
+  const OCOLORS={'Ejecutado':'#1D9E75','En ejecución':'#378ADD','Facturado':'#534AB7'};
+  const PCOLORS={'SERVEO':'#7F77DD','CEION':'#D85A30','CEION-Adán Alguacil':'#D4537E','Sin asignar':'#aaa'};
 
-  const estadoOrder = ['Pendiente presupuesto','Presupuesto aprobado','Pendiente aprobación','No procede'];
-  const estadoColors = {'Pendiente presupuesto':PALETTE.pendientePresupuesto.fill,'Presupuesto aprobado':PALETTE.presupuestoAprobado.fill,'Pendiente aprobación':PALETTE.pendienteAprobacion.fill,'No procede':PALETTE.noProcede.fill};
-  const estadoData = Object.entries(estadoCounts)
-    .sort((a,b)=> estadoOrder.indexOf(a[0]) - estadoOrder.indexOf(b[0]))
-    .map(([label,value])=>({label, value, color: estadoColors[label] || '#888780'}));
+  const estData  = Object.entries(estCounts).map(([label,value])=>({label,value,color:ECOLORS[label]||'#888'}));
+  const obraData = Object.entries(obraCounts).map(([label,value])=>({label,value,color:OCOLORS[label]||'#888'}));
+  const provData = Object.entries(provCounts).map(([label,value])=>({label,value,color:PCOLORS[label]||'#888'}));
 
-  const provColors = {'SERVEO':PALETTE.serveo.fill,'CEION':PALETTE.ceion.fill};
-  const proveedorData = Object.entries(proveedorCounts).map(([label,value])=>({label, value, color: provColors[label] || PALETTE.otro.fill}));
-
-  const obraColors = {'Ejecutado':PALETTE.ejecutado.fill,'En ejecución':PALETTE.enEjecucion.fill,'Facturado':PALETTE.facturado.fill};
-  const obraData = Object.entries(obraCounts).map(([label,value])=>({label, value, color: obraColors[label] || '#888780'}));
-
-  const aprobadas = estadoCounts['Presupuesto aprobado'] || 0;
-  const pendientePpto = estadoCounts['Pendiente presupuesto'] || 0;
-  const pendienteAprob = estadoCounts['Pendiente aprobación'] || 0;
-  const noProcede = estadoCounts['No procede'] || 0;
-  const tiempoMedio = tiemposTramitacion.length
-    ? Math.round(tiemposTramitacion.reduce((a,b)=>a+b,0) / tiemposTramitacion.length)
-    : null;
-
-  document.getElementById('content').innerHTML = `
+  document.getElementById('content').innerHTML=`
     <div class="metrics">
-      <div class="metric"><p class="label">Total incidencias</p><p class="value">${total}</p></div>
-      <div class="metric"><p class="label">Aprobadas</p><p class="value" style="color:var(--success)">${aprobadas}</p></div>
-      <div class="metric"><p class="label">Pdte. presupuesto</p><p class="value" style="color:var(--warning)">${pendientePpto}</p></div>
-      <div class="metric"><p class="label">Pdte. aprobación</p><p class="value" style="color:var(--info)">${pendienteAprob}</p></div>
-      <div class="metric"><p class="label">No procede</p><p class="value" style="color:var(--danger)">${noProcede}</p></div>
-      <div class="metric"><p class="label">Importe total</p><p class="value">€ ${Math.round(sumaImporte).toLocaleString('es-ES')}</p></div>
-      ${tiempoMedio !== null ? `<div class="metric"><p class="label">Días medios tramitación</p><p class="value">${tiempoMedio}</p></div>` : ''}
+      <div class="metric"><p class="label">Total incidencias</p><p class="value">${rows.length}</p></div>
+      <div class="metric"><p class="label">Presupuesto aprobado</p><p class="value" style="color:var(--success)">${estCounts['Presupuesto aprobado']||0}</p></div>
+      <div class="metric"><p class="label">Pdte. presupuesto</p><p class="value" style="color:var(--warning)">${estCounts['Pendiente presupuesto']||0}</p></div>
+      <div class="metric"><p class="label">Pdte. aprobación</p><p class="value" style="color:var(--info)">${estCounts['Pendiente aprobación']||0}</p></div>
+      <div class="metric"><p class="label">No procede</p><p class="value" style="color:var(--danger)">${estCounts['No procede']||0}</p></div>
+      <div class="metric"><p class="label">Base total SERVEO</p><p class="value">€ ${Math.round(sumaBase).toLocaleString('es-ES')}</p><p class="sub">Total c/IVA: € ${Math.round(sumaTotal).toLocaleString('es-ES')}</p></div>
+      ${tiempoMedio!==null?`<div class="metric"><p class="label">Días medios tramitación</p><p class="value">${tiempoMedio}</p><p class="sub">petición → aprobación</p></div>`:''}
+      ${nPrior>0?`<div class="metric"><p class="label">Prioritarios</p><p class="value" style="color:var(--danger)">${nPrior}</p></div>`:''}
+      ${nPenal>0?`<div class="metric"><p class="label">Con penalización</p><p class="value" style="color:var(--danger)">${nPenal}</p><p class="sub">€ ${Math.round(sumaPenal).toLocaleString('es-ES')} total</p></div>`:''}
     </div>
 
     <div class="grid2">
-      <div class="card">
-        <p class="title">Estado de las incidencias</p>
-        <div class="chartbox"><canvas id="estadoChart"></canvas></div>
-        <div class="legend" id="estadoLegend"></div>
+      <div class="card"><p class="title">Estado de las incidencias</p>
+        <div class="chartbox"><canvas id="estChart"></canvas></div>
+        <div class="legend" id="estLegend"></div>
       </div>
-      <div class="card">
-        <p class="title">Estado de obra</p>
+      <div class="card"><p class="title">Estado de obra</p>
         <div class="chartbox"><canvas id="obraChart"></canvas></div>
         <div class="legend" id="obraLegend"></div>
       </div>
     </div>
 
     <div class="card" style="margin-bottom:14px;">
-      <p class="title">Importe por municipio (incidencias con presupuesto)</p>
-      <div class="chartbox tall"><canvas id="municipioChart"></canvas></div>
+      <p class="title">Base presupuesto SERVEO por municipio</p>
+      <div class="chartbox tall"><canvas id="munChart"></canvas></div>
     </div>
 
     <div class="grid2">
-      <div class="card">
-        <p class="title">Proveedor asignado</p>
-        <div class="chartbox"><canvas id="proveedorChart"></canvas></div>
-        <div class="legend" id="proveedorLegend"></div>
+      <div class="card"><p class="title">Proveedor asignado</p>
+        <div class="chartbox"><canvas id="provChart"></canvas></div>
+        <div class="legend" id="provLegend"></div>
       </div>
-      <div class="card">
-        <p class="title">Top expedientes por importe</p>
+      <div class="card"><p class="title">Top 5 expedientes por importe base</p>
         <table>
-          <thead><tr><th>Expediente</th><th style="text-align:right;">Importe</th></tr></thead>
-          <tbody>${topExp.map(t=>`<tr><td>${t.exp}</td><td style="text-align:right; font-weight:600;">€ ${Number(t.val).toLocaleString('es-ES',{minimumFractionDigits:2})}</td></tr>`).join('')}</tbody>
+          <thead><tr><th>Expediente</th><th style="text-align:right">Base</th><th style="text-align:center">Conformidad</th><th style="text-align:right">Penal.</th></tr></thead>
+          <tbody>${top5.map(t=>`<tr>
+            <td>${t.exp}</td>
+            <td style="text-align:right;font-weight:600">€ ${t.base.toLocaleString('es-ES',{minimumFractionDigits:2})}</td>
+            <td style="text-align:center">${fmtDate(t.conf)}</td>
+            <td style="text-align:right">${t.penal>0?`<span class="badge danger">€ ${t.penal.toLocaleString('es-ES',{minimumFractionDigits:2})}</span>`:'—'}</td>
+          </tr>`).join('')}</tbody>
         </table>
       </div>
     </div>
   `;
 
-  if(estadoData.length) buildDonut('estadoChart','estadoLegend', estadoData);
-  if(obraData.length) buildDonut('obraChart','obraLegend', obraData);
-  if(proveedorData.length) buildDonut('proveedorChart','proveedorLegend', proveedorData);
+  if(estData.length)  buildDonut('estChart','estLegend',estData);
+  if(obraData.length) buildDonut('obraChart','obraLegend',obraData);
+  if(provData.length) buildDonut('provChart','provLegend',provData);
 
-  if(municipiosArr.length){
-    const ctx = document.getElementById('municipioChart');
-    const chart = new Chart(ctx, {
+  if(munArr.length){
+    const c=new Chart(document.getElementById('munChart'),{
       type:'bar',
-      data:{labels:municipiosArr.map(m=>m.name), datasets:[{label:'Importe', data:municipiosArr.map(m=>Math.round(m.value)), backgroundColor:'#7F77DD'}]},
+      data:{labels:munArr.map(m=>m.name), datasets:[{label:'Base SERVEO', data:munArr.map(m=>Math.round(m.value)), backgroundColor:'#7F77DD'}]},
       options:{indexAxis:'y', responsive:true, maintainAspectRatio:false,
         plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>'€ '+c.parsed.x.toLocaleString('es-ES')}}},
         scales:{x:{ticks:{callback:v=>'€'+v.toLocaleString('es-ES')}}}}
     });
-    charts.push(chart);
+    charts.push(c);
   }
 }
 
 async function loadData(){
-  const statusEl = document.getElementById('statusLine');
-  statusEl.classList.remove('error');
-  statusEl.textContent = 'Actualizando...';
+  const st=document.getElementById('statusLine');
+  st.classList.remove('error');
+  st.textContent='Actualizando...';
   try{
-    const res = await fetch(GIST_RAW_URL + '?t=' + Date.now());
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
-    render(Array.isArray(json) ? json : (json.value || []));
-    const now = new Date();
-    statusEl.textContent = 'Última actualización: ' + now.toLocaleString('es-ES');
+    const res=await fetch(GIST_RAW+'?t='+Date.now());
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const json=await res.json();
+    render(Array.isArray(json)?json:(json.value||[]));
+    st.textContent='Última actualización: '+new Date().toLocaleString('es-ES');
   }catch(err){
-    statusEl.classList.add('error');
-    statusEl.textContent = 'Error al cargar datos: ' + err.message + '. Comprueba que el Gist tiene datos y que la URL raw es correcta.';
-    if(!document.getElementById('estadoChart')){
-      document.getElementById('content').innerHTML = '<div class="placeholder">No se han podido cargar los datos todavía.<br>Revisa que el flujo de Power Automate ha publicado el JSON en el Gist.</div>';
-    }
+    st.classList.add('error');
+    st.textContent='Error al cargar datos: '+err.message;
+    if(!document.getElementById('estChart'))
+      document.getElementById('content').innerHTML='<div class="placeholder">No se han podido cargar los datos.<br>Revisa que Power Automate ha publicado el JSON en el Gist.</div>';
   }
 }
 
-document.getElementById('refreshBtn').addEventListener('click', loadData);
+document.getElementById('refreshBtn').addEventListener('click',loadData);
 loadData();
-setInterval(loadData, REFRESH_MS);
+setInterval(loadData,REFRESH_MS);
 </script>
 </body>
 </html>
