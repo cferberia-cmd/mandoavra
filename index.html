@@ -569,7 +569,7 @@ async function renderMap(){
 
   // Init mapa
   if(!leafletMap){
-    leafletMap=L.map('map',{zoomControl:true}).setView([37.8,-3.5],9);
+    leafletMap=L.map('map',{zoomControl:true}).setView([37.9,-3.4],10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(leafletMap);
   }
 
@@ -620,6 +620,10 @@ async function renderMap(){
     }
     if(!coords)continue;
     bounds.push([coords.lat,coords.lng]);
+    // Recentrar progresivamente cada 5 pins nuevos
+    if(bounds.length===1||bounds.length%5===0){
+      leafletMap.fitBounds(bounds,{padding:[40,40],maxZoom:13,animate:false});
+    }
     const color=colorForEstado(row.estado);
     const marker=L.marker([coords.lat,coords.lng],{icon:makeMarkerIcon(color)}).addTo(leafletMap);
     const popup=L.popup({maxWidth:280,className:'avra-popup'}).setContent(`
