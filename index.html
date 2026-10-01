@@ -530,27 +530,29 @@ function renderPlazoTabla(tab){
 }
 
 /* ─── GEOCODIFICACIÓN ─── */
-async function geocode(row){
-  if(geoCache[row.geoKey]) return geoCache[row.geoKey];
-  const q=encodeURIComponent(row.fullAddr);
+const munGeoCache = {};
+async function geocodeMunicipio(municipio){
+  if(munGeoCache[municipio]) return munGeoCache[municipio];
   try{
+    const q=encodeURIComponent(`${municipio}, Jaén, España`);
     const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
-    const data=await res.json();
-    if(data&&data[0]){
-      const coords={lat:parseFloat(data[0].lat),lng:parseFloat(data[0].lon)};
-      geoCache[row.geoKey]=coords;
+    const d=await res.json();
+    if(d&&d[0]){const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};munGeoCache[municipio]=c;return c;}
+  }catch(e){}
+  return null;
+}
+
+async function geocodeDireccion(row){
+  if(geoCache[row.geoKey]) return geoCache[row.geoKey];
+  try{
+    const q=encodeURIComponent(row.fullAddr);
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
+    const d=await res.json();
+    if(d&&d[0]){
+      const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
+      geoCache[row.geoKey]=c;
       localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(geoCache));
-      return coords;
-    }
-    // Fallback: solo municipio + provincia
-    const q2=encodeURIComponent(`${row.municipio}, Jaén, España`);
-    const res2=await fetch(`https://nominatim.openstreetmap.org/search?q=${q2}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
-    const d2=await res2.json();
-    if(d2&&d2[0]){
-      const coords={lat:parseFloat(d2[0].lat),lng:parseFloat(d2[0].lon)};
-      geoCache[row.geoKey]=coords;
-      localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(geoCache));
-      return coords;
+      return c;
     }
   }catch(e){}
   return null;
@@ -558,109 +560,156 @@ async function geocode(row){
 
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
-/* ─── MAPA ─── */
-function makeMarkerIcon(color){
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="38" viewBox="0 0 28 38"><path d="M14 0C6.27 0 0 6.27 0 14c0 9.63 14 24 14 24S28 23.63 28 14C28 6.27 21.73 0 14 0z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="14" cy="14" r="6" fill="white" opacity="0.9"/></svg>`;
-  return L.divIcon({html:svg,iconSize:[28,38],iconAnchor:[14,38],popupAnchor:[0,-38],className:''});
+/* ─── ICONOS ─── */
+function makeMarkerIcon(color,size=28){
+  const h=Math.round(size*1.36);
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${h}" viewBox="0 0 28 38"><path d="M14 0C6.27 0 0 6.27 0 14c0 9.63 14 24 14 24S28 23.63 28 14C28 6.27 21.73 0 14 0z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="14" cy="14" r="6" fill="white" opacity="0.9"/></svg>`;
+  return L.divIcon({html:svg,iconSize:[size,h],iconAnchor:[size/2,h],popupAnchor:[0,-h],className:''});
 }
+
+function makeClusterIcon(color,count){
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+    <circle cx="22" cy="22" r="20" fill="${color}" stroke="white" stroke-width="2" opacity="0.9"/>
+    <text x="22" y="27" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="${count>9?13:15}" font-weight="700" fill="white">${count}</text>
+  </svg>`;
+  return L.divIcon({html:svg,iconSize:[44,44],iconAnchor:[22,22],popupAnchor:[0,-22],className:''});
+}
+
+function popupContentMunicipio(municipio,rows){
+  const byEstado={};
+  rows.forEach(r=>{byEstado[r.estado]=(byEstado[r.estado]||[]);byEstado[r.estado].push(r);});
+  const lista=rows.map(r=>`
+    <div onclick="window._openFichaExp('${r.exp}')" style="padding:6px 8px;border-radius:6px;cursor:pointer;margin-bottom:3px;background:#f8f8f6;border:1px solid #e8e8e4;transition:background .12s" onmouseover="this.style.background='#eef2ff'" onmouseout="this.style.background='#f8f8f6'">
+      <div style="font-size:12px;font-weight:700;color:#4f46e5">${r.exp}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">
+        <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:${colorForEstado(r.estado)}20;color:${colorForEstado(r.estado)}">${r.estado}</span>
+        ${r.base>0?`<span style="font-size:10px;color:#71717a">${euro2(r.base)}</span>`:''}
+      </div>
+    </div>`).join('');
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-width:220px;max-width:280px">
+    <div style="font-size:13px;font-weight:700;color:#18181b;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e8e8e4">${municipio} <span style="font-size:11px;color:#71717a;font-weight:400">(${rows.length} incidencia${rows.length>1?'s':''})</span></div>
+    <div style="max-height:240px;overflow-y:auto">${lista}</div>
+  </div>`;
+}
+
+function popupContentDireccion(row){
+  const color=colorForEstado(row.estado);
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:4px 0;min-width:220px">
+    <div style="font-size:13px;font-weight:700;color:#4f46e5;margin-bottom:4px">${row.exp}</div>
+    <div style="font-size:11px;color:#71717a;margin-bottom:6px">${row.fullAddr.split(',').slice(0,3).join(', ')}</div>
+    <span style="background:${color}20;color:${color};padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">${row.estado}</span>
+    <div style="font-size:11px;color:#71717a;margin-top:8px;line-height:1.6">
+      ${row.base>0?`<div><strong>Base:</strong> ${euro2(row.base)}</div>`:''}
+      ${row.penalEst>0?`<div style="color:#dc2626"><strong>Penal.est.:</strong> ${euro2(row.penalEst)}</div>`:''}
+      <div style="margin-top:4px">${alertBadge(row.p1Status,row.p1Dias)} ${alertBadge(row.p2Status,row.p2Dias)}</div>
+    </div>
+    <button onclick="window._openFichaExp('${row.exp}')" style="margin-top:10px;width:100%;padding:7px;background:#4f46e5;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">Ver ficha completa →</button>
+  </div>`;
+}
+
+/* ─── MAPA ─── */
+let munMarkers={}, dirMarkers={}, geoRunning=false;
 
 async function renderMap(){
   const rows=filteredRows;
-
-  // Init mapa
   if(!leafletMap){
     leafletMap=L.map('map',{zoomControl:true}).setView([37.9,-3.4],10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(leafletMap);
   }
 
-  // Limpiar markers anteriores
-  markers.forEach(m=>m.remove());
-  markers=[];
+  // Limpiar todo
+  markers.forEach(m=>m.remove()); markers=[];
+  Object.values(munMarkers).forEach(m=>m.remove()); munMarkers={};
+  Object.values(dirMarkers).forEach(m=>m.remove()); dirMarkers={};
 
   // Sidebar stats
-  const estCounts={};
-  rows.forEach(r=>{estCounts[r.estado]=(estCounts[r.estado]||0)+1;});
   document.getElementById('mapStats').innerHTML=`
     <div class="map-stat"><div class="map-stat-val">${rows.length}</div><div class="map-stat-label">Total</div></div>
     <div class="map-stat"><div class="map-stat-val" style="color:var(--danger)">${rows.filter(r=>r.p1Status==='vencido'||r.p2Status==='vencido').length}</div><div class="map-stat-label">Vencidas</div></div>
     <div class="map-stat"><div class="map-stat-val" style="color:var(--success)">${rows.filter(r=>r.estado==='Aprobado').length}</div><div class="map-stat-label">Aprobadas</div></div>
-    <div class="map-stat"><div class="map-stat-val" style="color:var(--warning)">${rows.filter(r=>r.estado==='Pdte. presupuesto').length}</div><div class="map-stat-label">Pdte.ppto.</div></div>
-  `;
+    <div class="map-stat"><div class="map-stat-val" style="color:var(--warning)">${rows.filter(r=>r.estado==='Pdte. presupuesto').length}</div><div class="map-stat-label">Pdte.ppto.</div></div>`;
 
-  // Lista sidebar
+  // Sidebar lista
   document.getElementById('mapIncList').innerHTML=rows.map(r=>`
     <div class="map-inc-item" data-exp="${r.exp}">
       <div class="map-inc-exp">${r.exp}</div>
       <div class="map-inc-mun">${r.municipio}</div>
-      <div class="map-inc-status"><span class="badge" style="background:${colorForEstado(r.estado)}20;color:${colorForEstado(r.estado)};border-radius:20px;font-size:10px;font-weight:700;padding:2px 7px">${r.estado}</span></div>
-    </div>
-  `).join('');
+      <div class="map-inc-status"><span class="badge" style="background:${colorForEstado(r.estado)}20;color:${colorForEstado(r.estado)}">${r.estado}</span></div>
+    </div>`).join('');
 
-  // Geocodificar y poner markers
+  // ── FASE 1: pins por municipio (instantáneo) ──
+  const byMun={};
+  rows.forEach(r=>{if(!byMun[r.municipio])byMun[r.municipio]=[];byMun[r.municipio].push(r);});
+  const munList=Object.keys(byMun);
+  const munBounds=[];
+
   const progEl=document.getElementById('geoProgress');
   const progText=document.getElementById('geoText');
   const progBar=document.getElementById('geoBar');
-  const toGeocode=rows.filter(r=>!geoCache[r.geoKey]);
-  if(toGeocode.length>0){
-    progEl.style.display='block';
+  progEl.style.display='block';
+  progText.textContent=`Cargando municipios (${munList.length})…`;
+  progBar.style.width='0%';
+
+  for(let i=0;i<munList.length;i++){
+    const mun=munList[i];
+    const munRows=byMun[mun];
+    const coords=await geocodeMunicipio(mun);
+    if(!coords){await sleep(1100);continue;}
+    munBounds.push([coords.lat,coords.lng]);
+    // Color del estado más frecuente
+    const estCount={};munRows.forEach(r=>{estCount[r.estado]=(estCount[r.estado]||0)+1;});
+    const dominante=Object.entries(estCount).sort((a,b)=>b[1]-a[1])[0][0];
+    const color=colorForEstado(dominante);
+    const icon=munRows.length===1?makeMarkerIcon(color):makeClusterIcon(color,munRows.length);
+    const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);
+    m.bindPopup(L.popup({maxWidth:300}).setContent(popupContentMunicipio(mun,munRows)));
+    munMarkers[mun]=m;
+    markers.push(m);
+    const pct=Math.round((i+1)/munList.length*100);
+    progText.textContent=`Municipios: ${i+1}/${munList.length}`;
+    progBar.style.width=pct+'%';
+    if(!munGeoCache[mun])await sleep(1100);
   }
 
-  let done=0;
-  const bounds=[];
-
-  for(const row of rows){
-    let coords=geoCache[row.geoKey]||null;
-    if(!coords){
-      coords=await geocode(row);
-      done++;
-      const pct=Math.round(done/toGeocode.length*100);
-      progText.textContent=`Geocodificando ${done}/${toGeocode.length}…`;
-      progBar.style.width=pct+'%';
-      await sleep(1100); // respeta el rate-limit de Nominatim
-    }
-    if(!coords)continue;
-    bounds.push([coords.lat,coords.lng]);
-    // Recentrar progresivamente cada 5 pins nuevos
-    if(bounds.length===1||bounds.length%5===0){
-      leafletMap.fitBounds(bounds,{padding:[40,40],maxZoom:13,animate:false});
-    }
-    const color=colorForEstado(row.estado);
-    const marker=L.marker([coords.lat,coords.lng],{icon:makeMarkerIcon(color)}).addTo(leafletMap);
-    const popup=L.popup({maxWidth:280,className:'avra-popup'}).setContent(`
-      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:4px 0">
-        <div style="font-size:13px;font-weight:700;color:#4f46e5;margin-bottom:6px">${row.exp}</div>
-        <div style="font-size:12px;color:#71717a;margin-bottom:2px">${row.municipio}</div>
-        <div style="margin:6px 0"><span style="background:${color}20;color:${color};padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700">${row.estado}</span></div>
-        <div style="font-size:11px;color:#71717a;margin-top:6px;line-height:1.5">
-          ${row.base>0?`<div><strong>Base:</strong> ${euro2(row.base)}</div>`:''}
-          ${row.penalEst>0?`<div style="color:#dc2626"><strong>Penal.est.:</strong> ${euro2(row.penalEst)}</div>`:''}
-          <div style="margin-top:4px">${alertBadge(row.p1Status,row.p1Dias)} ${alertBadge(row.p2Status,row.p2Dias)}</div>
-        </div>
-        <button onclick="window._openFichaExp('${row.exp}')" style="margin-top:10px;width:100%;padding:7px;background:#4f46e5;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">Ver ficha completa →</button>
-      </div>
-    `);
-    marker.bindPopup(popup);
-    markers.push(marker);
-  }
-
-  progEl.style.display='none';
-  if(bounds.length) leafletMap.fitBounds(bounds,{padding:[40,40]});
+  if(munBounds.length) leafletMap.fitBounds(munBounds,{padding:[40,40],maxZoom:12});
   setTimeout(()=>leafletMap.invalidateSize(),100);
 
-  // Click en lista sidebar → abrir popup del marker
+  // ── FASE 2: refinar con dirección exacta (en segundo plano) ──
+  const toRefine=rows.filter(r=>!geoCache[r.geoKey]);
+  if(!toRefine.length){progEl.style.display='none';return;}
+
+  progText.textContent=`Precisando direcciones: 0/${toRefine.length}…`;
+  progBar.style.width='0%';
+
+  for(let i=0;i<toRefine.length;i++){
+    if(currentTab!=='map')break; // parar si cambian de pestaña
+    const row=toRefine[i];
+    const coords=await geocodeDireccion(row);
+    await sleep(1100);
+    if(!coords)continue;
+    // Reemplazar el pin de municipio por pin individual si solo queda 1 en ese municipio
+    const color=colorForEstado(row.estado);
+    const dm=L.marker([coords.lat,coords.lng],{icon:makeMarkerIcon(color,24)}).addTo(leafletMap);
+    dm.bindPopup(L.popup({maxWidth:280}).setContent(popupContentDireccion(row)));
+    dirMarkers[row.exp]=dm;
+    markers.push(dm);
+    const pct=Math.round((i+1)/toRefine.length*100);
+    progText.textContent=`Precisando: ${i+1}/${toRefine.length}`;
+    progBar.style.width=pct+'%';
+  }
+  progEl.style.display='none';
+
+  // Sidebar click → volar al marker
   document.getElementById('mapIncList').addEventListener('click',e=>{
     const item=e.target.closest('[data-exp]');if(!item)return;
     const exp=item.dataset.exp;
-    const row=filteredRows.find(r=>r.exp===exp);
-    if(!row)return;
-    const coords=geoCache[row.geoKey];
-    if(coords){
-      leafletMap.setView([coords.lat,coords.lng],15,{animate:true});
-      const marker=markers[filteredRows.filter(r=>geoCache[r.geoKey]).findIndex(r=>r.exp===exp)];
-      if(marker)marker.openPopup();
-    } else {
-      openFicha(row);
-    }
+    const row=filteredRows.find(r=>r.exp===exp);if(!row)return;
+    // Preferir pin de dirección exacta, si no el de municipio
+    const dm=dirMarkers[exp];
+    if(dm){leafletMap.setView(dm.getLatLng(),16,{animate:true});dm.openPopup();return;}
+    const mm=munMarkers[row.municipio];
+    if(mm){leafletMap.setView(mm.getLatLng(),13,{animate:true});mm.openPopup();}
+    else openFicha(row);
   });
 }
 
