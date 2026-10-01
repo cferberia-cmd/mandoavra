@@ -595,25 +595,48 @@ function buildMapLegend(rows){
 }
 
 function applyMapFilter(){
-  // Municipios
-  Object.entries(munMarkers).forEach(([mun,marker])=>{
-    const munRows=filteredRows.filter(r=>r.municipio===mun);
-    const visible=munRows.some(r=>activeEstados.has(r.estado));
-    if(visible) marker.addTo(leafletMap);
-    else marker.remove();
+  if(!leafletMap) return;
+
+  // Reconstruir markers de municipio según filas visibles
+  Object.entries(munMarkers).forEach(([mun, marker])=>{
+    marker.remove();
   });
-  // Pins de dirección exacta
-  Object.entries(dirMarkers).forEach(([exp,marker])=>{
-    const row=filteredRows.find(r=>r.exp===exp);
-    if(row&&activeEstados.has(row.estado)) marker.addTo(leafletMap);
-    else marker.remove();
+  munMarkers={};
+
+  // Agrupar filas filtradas por activeEstados
+  const visibleRows = filteredRows.filter(r => activeEstados.has(r.estado));
+  const byMun={};
+  visibleRows.forEach(r=>{ if(!byMun[r.municipio]) byMun[r.municipio]=[]; byMun[r.municipio].push(r); });
+
+  Object.entries(byMun).forEach(([mun, munRows])=>{
+    const coords = munGeoCache[mun];
+    if(!coords) return;
+    const estCount={};
+    munRows.forEach(r=>{estCount[r.estado]=(estCount[r.estado]||0)+1;});
+    const dominante=Object.entries(estCount).sort((a,b)=>b[1]-a[1])[0][0];
+    const color=colorForEstado(dominante);
+    const icon=munRows.length===1?makeMarkerIcon(color):makeClusterIcon(color,munRows.length);
+    const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);
+    m.bindPopup(L.popup({maxWidth:300}).setContent(popupContentMunicipio(mun,munRows)));
+    munMarkers[mun]=m;
   });
-  // Actualizar lista sidebar
+
+  // Pins dirección exacta
+  Object.entries(dirMarkers).forEach(([exp, marker])=>{
+    const row = filteredRows.find(r=>r.exp===exp);
+    if(row && activeEstados.has(row.estado)) {
+      if(!leafletMap.hasLayer(marker)) marker.addTo(leafletMap);
+    } else {
+      if(leafletMap.hasLayer(marker)) marker.remove();
+    }
+  });
+
+  // Lista sidebar
   const list=document.getElementById('mapIncList');
   if(list){
     list.querySelectorAll('.map-inc-item').forEach(item=>{
       const row=filteredRows.find(r=>r.exp===item.dataset.exp);
-      item.style.display=(row&&activeEstados.has(row.estado))?'':'none';
+      item.style.display=(row&&activeEstados.has(row.estado))?'block':'none';
     });
   }
 }
