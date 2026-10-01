@@ -229,14 +229,7 @@ tbody tr:hover td{background:var(--surface-2);}
       <div class="map-sidebar">
         <div>
           <div class="map-sidebar-title">Leyenda de estado</div>
-          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
-            <div class="legend-item"><span class="legend-pin" style="background:#d97706"></span>Pdte. presupuesto</div>
-            <div class="legend-item"><span class="legend-pin" style="background:#4f46e5"></span>Pdte. aprobación</div>
-            <div class="legend-item"><span class="legend-pin" style="background:#059669"></span>Presupuesto aprobado</div>
-            <div class="legend-item"><span class="legend-pin" style="background:#7c3aed"></span>Facturado</div>
-            <div class="legend-item"><span class="legend-pin" style="background:#dc2626"></span>No procede</div>
-            <div class="legend-item"><span class="legend-pin" style="background:#71717a"></span>Sin estado</div>
-          </div>
+          <div id="mapLegend" style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px;"></div>
         </div>
         <div id="geoProgress" style="display:none;" class="geo-progress">
           <div id="geoText">Geocodificando…</div>
@@ -531,14 +524,17 @@ function renderPlazoTabla(tab){
 
 /* ─── GEOCODIFICACIÓN ─── */
 const munGeoCache = {};
-async function geocodeMunicipio(municipio){
+async function geocodeMunicipio(municipio, intentos=3){
   if(munGeoCache[municipio]) return munGeoCache[municipio];
-  try{
-    const q=encodeURIComponent(`${municipio}, Jaén, España`);
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
-    const d=await res.json();
-    if(d&&d[0]){const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};munGeoCache[municipio]=c;return c;}
-  }catch(e){}
+  for(let i=0;i<intentos;i++){
+    try{
+      const q=encodeURIComponent(`${municipio}, Jaén, España`);
+      const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
+      if(!res.ok){await sleep(2000*(i+1));continue;}
+      const d=await res.json();
+      if(d&&d[0]){const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};munGeoCache[municipio]=c;return c;}
+    }catch(e){await sleep(2000*(i+1));}
+  }
   return null;
 }
 
@@ -559,6 +555,74 @@ async function geocodeDireccion(row){
 }
 
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function buildMapLegend(rows){
+  const ESTADOS=[
+    {key:'Pdte. presupuesto', color:'#d97706'},
+    {key:'Pdte. aprobación',  color:'#4f46e5'},
+    {key:'Aprobado',          color:'#059669'},
+    {key:'Facturado',         color:'#7c3aed'},
+    {key:'No procede',        color:'#dc2626'},
+    {key:'Sin estado',        color:'#71717a'},
+  ];
+  const counts={};
+  rows.forEach(r=>{counts[r.estado]=(counts[r.estado]||0)+1;});
+  const el=document.getElementById('mapLegend');
+  if(!el)return;
+  el.innerHTML=ESTADOS.map(e=>{
+    const n=counts[e.key]||0;
+    const checked=activeEstados.has(e.key)?'checked':'';
+    return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 6px;border-radius:6px;transition:background .12s" onmouseover="this.style.background='#f2f2ef'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" ${checked} data-estado="${e.key}" style="accent-color:${e.color};width:14px;height:14px;cursor:pointer">
+      <span class="legend-pin" style="background:${e.color}"></span>
+      <span style="font-size:12px;color:var(--text-sec);flex:1">${e.key}</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-ter)">${n}</span>
+    </label>`;
+  }).join('');
+  el.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      if(cb.checked) activeEstados.add(cb.dataset.estado);
+      else activeEstados.delete(cb.dataset.estado);
+      applyMapFilter();
+    });
+  });
+  // Botones seleccionar todo / ninguno
+  el.insertAdjacentHTML('beforeend',`
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <button onclick="selectAllEstados(true)" class="btn" style="flex:1;font-size:11px;padding:5px 8px">✓ Todos</button>
+      <button onclick="selectAllEstados(false)" class="btn" style="flex:1;font-size:11px;padding:5px 8px">✕ Ninguno</button>
+    </div>`);
+}
+
+function applyMapFilter(){
+  // Municipios
+  Object.entries(munMarkers).forEach(([mun,marker])=>{
+    const munRows=filteredRows.filter(r=>r.municipio===mun);
+    const visible=munRows.some(r=>activeEstados.has(r.estado));
+    if(visible) marker.addTo(leafletMap);
+    else marker.remove();
+  });
+  // Pins de dirección exacta
+  Object.entries(dirMarkers).forEach(([exp,marker])=>{
+    const row=filteredRows.find(r=>r.exp===exp);
+    if(row&&activeEstados.has(row.estado)) marker.addTo(leafletMap);
+    else marker.remove();
+  });
+  // Actualizar lista sidebar
+  const list=document.getElementById('mapIncList');
+  if(list){
+    list.querySelectorAll('.map-inc-item').forEach(item=>{
+      const row=filteredRows.find(r=>r.exp===item.dataset.exp);
+      item.style.display=(row&&activeEstados.has(row.estado))?'':'none';
+    });
+  }
+}
+
+window.selectAllEstados=(val)=>{
+  activeEstados=new Set(val?Object.keys(ESTADO_COLOR).concat(['Sin estado']):[]);
+  document.querySelectorAll('#mapLegend input[type=checkbox]').forEach(cb=>{cb.checked=val;});
+  applyMapFilter();
+};
 
 /* ─── ICONOS ─── */
 function makeMarkerIcon(color,size=28){
@@ -609,6 +673,7 @@ function popupContentDireccion(row){
 
 /* ─── MAPA ─── */
 let munMarkers={}, dirMarkers={}, geoRunning=false;
+let activeEstados=new Set(Object.keys(ESTADO_COLOR).concat(['Sin estado']));
 
 async function renderMap(){
   const rows=filteredRows;
@@ -621,6 +686,9 @@ async function renderMap(){
   markers.forEach(m=>m.remove()); markers=[];
   Object.values(munMarkers).forEach(m=>m.remove()); munMarkers={};
   Object.values(dirMarkers).forEach(m=>m.remove()); dirMarkers={};
+
+  // Leyenda con checkboxes
+  buildMapLegend(rows);
 
   // Sidebar stats
   document.getElementById('mapStats').innerHTML=`
