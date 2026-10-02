@@ -238,6 +238,7 @@ tbody tr:hover td{background:var(--surface-2);}
         <div class="map-stats" id="mapStats"></div>
         <div class="map-sidebar-title" style="margin-top:4px;">Incidencias en el mapa</div>
         <div class="map-inc-list" id="mapIncList"><div class="placeholder" style="padding:20px 0">Cargando…</div></div>
+        <div id="mapNoUbicadas" style="display:none;background:var(--surface);border:1px solid #fde68a;border-radius:var(--r-sm);padding:10px 12px;margin-top:8px;"></div>
       </div>
       <div id="map"></div>
     </div>
@@ -647,6 +648,35 @@ window.selectAllEstados=(val)=>{
   applyMapFilter();
 };
 
+function renderNoUbicadas(sinDir, noGeo){
+  const todas=[...new Map([...sinDir,...noGeo].map(r=>[r.exp,r])).values()];
+  const el=document.getElementById('mapNoUbicadas');
+  if(!el) return;
+  if(!todas.length){ el.style.display='none'; return; }
+  el.style.display='block';
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:16px">⚠️</span>
+        <span style="font-size:12px;font-weight:700;color:var(--warning)">Sin ubicar en el mapa</span>
+        <span style="background:var(--warning-light);color:var(--warning);padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">${todas.length}</span>
+      </div>
+      <span style="font-size:11px;color:var(--text-ter)">▼ ver</span>
+    </div>
+    <div style="display:none">
+      ${todas.map(r=>`
+        <div onclick="window._openFichaExp('${r.exp}')" style="padding:7px 8px;border-radius:6px;cursor:pointer;margin-bottom:4px;background:var(--warning-light);border:1px solid #fde68a;transition:opacity .12s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:12px;font-weight:700;color:var(--accent)">${r.exp}</div>
+          <div style="font-size:11px;color:var(--text-sec);margin-top:2px">${r.municipio}</div>
+          <div style="font-size:10px;color:var(--warning);margin-top:3px;font-weight:600">
+            ${!r.fullAddr||r.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length<=5
+              ? '⚠ Sin dirección en el Excel'
+              : '⚠ Dirección no encontrada en el mapa'}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
 /* ─── ICONOS ─── */
 function makeMarkerIcon(color,size=28){
   const h=Math.round(size*1.36);
@@ -730,7 +760,13 @@ async function renderMap(){
 
   // ── FASE 1: pins por municipio (instantáneo) ──
   const byMun={};
-  rows.forEach(r=>{if(!byMun[r.municipio])byMun[r.municipio]=[];byMun[r.municipio].push(r);});
+  const sinDireccion=[];
+  rows.forEach(r=>{
+    const tieneDir=r.fullAddr&&r.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length>5;
+    if(!tieneDir) sinDireccion.push(r);
+    if(!byMun[r.municipio])byMun[r.municipio]=[];
+    byMun[r.municipio].push(r);
+  });
   const munList=Object.keys(byMun);
   const munBounds=[];
 
@@ -766,8 +802,13 @@ async function renderMap(){
   setTimeout(()=>leafletMap.invalidateSize(),100);
 
   // ── FASE 2: refinar con dirección exacta (en segundo plano) ──
+  const noUbicadas=[];
   const toRefine=rows.filter(r=>!geoCache[r.geoKey]);
-  if(!toRefine.length){progEl.style.display='none';return;}
+  if(!toRefine.length){
+    progEl.style.display='none';
+    renderNoUbicadas(sinDireccion, noUbicadas);
+    return;
+  }
 
   progText.textContent=`Precisando direcciones: 0/${toRefine.length}…`;
   progBar.style.width='0%';
@@ -789,6 +830,7 @@ async function renderMap(){
     progBar.style.width=pct+'%';
   }
   progEl.style.display='none';
+  renderNoUbicadas(sinDireccion, noUbicadas);
 
   // Sidebar click → volar al marker
   document.getElementById('mapIncList').addEventListener('click',e=>{
