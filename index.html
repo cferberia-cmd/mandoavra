@@ -402,10 +402,45 @@ function processRows(rows){
     const fFact=excelDate(KEYS.fFact?r[KEYS.fFact]:null);
     const esFacturada=fFact!==null;
     const excluida=(obraLabel==='Facturado'||estado==='No procede'||esFacturada);
-    let p1Status='sin-fecha',p1Dias=null,p2Status='sin-fecha',p2Dias=null,penalEst=0;
+
+    // ── NUEVA LÓGICA DE PLAZOS ──
+    // Plazo 1 (presupuesto): 3 días lab desde FECHA PETICIÓN hasta FECHA PRESUPUESTO
+    // Plazo 2 (ejecución): 60 días naturales desde FECHA APROBACION AVRA, solo si ESTADO = Aprobado y no facturado
+    let p1Status='sin-fecha',p1Dias=null;
+    let p2Status='sin-fecha',p2Dias=null;
+    let penalEst=0;
+
     if(!excluida){
-      if(fPet){const lim1=addDiasLab(fPet,3);if(fPres){p1Status=fPres<=lim1?'cumplido':'vencido';if(p1Status==='vencido')penalEst+=base*.1;}else{const dr=diasLabRestantes(hoy,lim1);if(hoy>lim1){p1Status='vencido';penalEst+=base*.1;}else if(dr<=3){p1Status='warning';p1Dias=dr;}else{p1Status='ok';p1Dias=dr;}}}
-      if(fApr){const lim2=add2M(fApr);if(obraLabel==='Ejecutado'||obraLabel==='Facturado'){p2Status='cumplido';}else{const dr=diasLabRestantes(hoy,lim2);if(hoy>lim2){p2Status='vencido';penalEst+=base*.1;}else if(dr<=3){p2Status='warning';p2Dias=dr;}else{p2Status='ok';p2Dias=dr;}}}
+      // Plazo 1
+      if(fPet){
+        const lim1=addDiasLab(fPet,3);
+        if(fPres){
+          p1Status=fPres<=lim1?'cumplido':'vencido';
+          if(p1Status==='vencido')penalEst+=base*.1;
+        }else{
+          const dr=diasLabRestantes(hoy,lim1);
+          if(hoy>lim1){p1Status='vencido';penalEst+=base*.1;}
+          else if(dr<=3){p1Status='warning';p1Dias=dr;}
+          else{p1Status='ok';p1Dias=dr;}
+        }
+      }
+
+      // Plazo 2: solo incidencias con estado Aprobado
+      if(estado==='Aprobado'&&fApr&&!esFacturada){
+        const lim2=new Date(fApr);lim2.setDate(lim2.getDate()+60);
+        const diasNatRestantes=Math.floor((lim2-hoy)/(1000*60*60*24));
+        const diasLabRest=diasLabRestantes(hoy,lim2);
+        if(hoy>lim2){
+          p2Status='vencido';
+          penalEst+=base*.1;
+        }else if(diasLabRest<=15){
+          p2Status='warning';p2Dias=diasLabRest;
+        }else{
+          p2Status='ok';p2Dias=diasNatRestantes;
+        }
+      }else if(excluida||esFacturada){
+        p2Status='excluida';
+      }
     }else{p1Status='excluida';p2Status='excluida';}
     const tv=KEYS.tipoVia?norm(r[KEYS.tipoVia]):'';
     const di=KEYS.direccion?String(r[KEYS.direccion]||'').trim():'';
@@ -518,19 +553,42 @@ function descargarPDF(){const w=window.open('','_blank');w.document.write(`<!DOC
 /* ─── TABLA PLAZOS ─── */
 function renderPlazoTabla(tab){
   document.querySelectorAll('.ptab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
-  const rows=filteredRows.filter(r=>{if(tab==='todas')return true;if(tab==='vencidas')return r.p1Status==='vencido'||r.p2Status==='vencido';if(tab==='aviso')return r.p1Status==='warning'||r.p2Status==='warning';if(tab==='ok')return['ok','cumplido'].includes(r.p1Status)&&!['vencido','warning'].includes(r.p2Status);return true;});
+  const hoyT=new Date();hoyT.setHours(0,0,0,0);
+  const rows=filteredRows.filter(r=>{
+    if(tab==='todas')return true;
+    if(r.estado!=='Aprobado'||r.esFacturada||!r.fApr)return tab==='todas';
+    const lim=new Date(r.fApr);lim.setDate(lim.getDate()+60);
+    const dl=diasLabRestantes(hoyT,lim);
+    if(tab==='vencidas')return hoyT>lim;
+    if(tab==='aviso')return hoyT<=lim&&dl<=15;
+    if(tab==='ok')return hoyT<=lim&&dl>15;
+    return true;
+  });
   const tb=document.getElementById('plazoTbody');if(!tb)return;
-  if(!rows.length){tb.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-ter)">Sin incidencias</td></tr>`;return;}
-  tb.innerHTML=rows.map(r=>`<tr>
-    <td><span class="exp-link" data-exp="${r.exp}">${r.exp}</span></td>
-    <td>${r.municipio}</td>
-    <td>${KEYS.fPet?fmtDate(r.raw[KEYS.fPet]):'—'}</td>
-    <td>${alertBadge(r.p1Status,r.p1Dias)}</td>
-    <td>${KEYS.fApr?fmtDate(r.raw[KEYS.fApr]):'—'}</td>
-    <td>${alertBadge(r.p2Status,r.p2Dias)}</td>
-    <td style="text-align:right;font-weight:700">${r.base>0?euro2(r.base):'—'}</td>
-    <td style="text-align:right">${r.penalEst>0?`<span class="badge danger">${euro2(r.penalEst)}</span>`:'—'}</td>
-  </tr>`).join('');
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-ter)">Sin incidencias en esta categoría</td></tr>`;return;}
+  const hoyT2=new Date();hoyT2.setHours(0,0,0,0);
+  tb.innerHTML=rows.map(r=>{
+    let estadoPlazo=alertBadge('sin-fecha',null);
+    let diasInfo='—';
+    if(r.estado==='Aprobado'&&!r.esFacturada&&r.fApr){
+      const lim=new Date(r.fApr);lim.setDate(lim.getDate()+60);
+      const dl=diasLabRestantes(hoyT2,lim);
+      const dn=Math.floor((lim-hoyT2)/(1000*60*60*24));
+      if(hoyT2>lim){estadoPlazo=alertBadge('vencido',null);diasInfo=`${Math.abs(dn)}d pasados`;}
+      else if(dl<=15){estadoPlazo=alertBadge('warning',dl);diasInfo=`${dn}d nat. restantes`;}
+      else{estadoPlazo=alertBadge('ok',dn);diasInfo=`${dn}d nat. restantes`;}
+    }
+    return`<tr>
+      <td><span class="exp-link" data-exp="${r.exp}">${r.exp}</span></td>
+      <td>${r.municipio}</td>
+      <td>${KEYS.fApr?fmtDate(r.raw[KEYS.fApr]):'—'}</td>
+      <td>${estadoPlazo}</td>
+      <td style="color:var(--text-sec);font-size:11px">${diasInfo}</td>
+      <td>${KEYS.fFact?fmtDate(r.raw[KEYS.fFact]):'—'}</td>
+      <td style="text-align:right;font-weight:700">${r.base>0?euro2(r.base):'—'}</td>
+      <td style="text-align:right">${r.base>0&&hoyT2>new Date(new Date(r.fApr).setDate(new Date(r.fApr).getDate()+60))?`<span class="badge danger">${euro2(r.base*.1)}</span>`:'—'}</td>
+    </tr>`;
+  }).join('');
 }
 
 /* ─── MAPA ─── */
@@ -761,7 +819,21 @@ function renderDashboard(){
   if(!rows.length){document.getElementById('content').innerHTML='<div class="placeholder"><strong>Sin resultados</strong>Prueba a cambiar los filtros</div>';return;}
   const campo=document.getElementById('filtroTipoFecha').value;
   const estC={},obraC={},provC={},munT={};
-  let sBase=0,sTotal=0,sPenalR=0,sPenalE=0,nPenalR=0,nPenalE=0,nPrior=0,nVenc=0,nWarn=0,nOk=0;
+  // ── CÁLCULOS PARA BANNER DE PENALIZACIÓN ──
+  // Solo incidencias con ESTADO = Aprobado, no facturadas
+  const aprobNoFact=rows.filter(r=>r.estado==='Aprobado'&&!r.esFacturada&&r.fApr);
+  let nVenc60=0,nAviso15=0,nEnPlazo=0,importePenal=0;
+  const hoyMs=new Date();hoyMs.setHours(0,0,0,0);
+  aprobNoFact.forEach(r=>{
+    const lim=new Date(r.fApr);lim.setDate(lim.getDate()+60);
+    const diasLab=diasLabRestantes(hoyMs,lim);
+    if(hoyMs>lim){nVenc60++;importePenal+=r.base;}
+    else if(diasLab<=15){nAviso15++;}
+    else{nEnPlazo++;}
+  });
+
+  // Contadores generales para tabla de plazos (plazo 1 + plazo 2)
+  let nVenc=0,nWarn=0,nOk=0,sPenalE=0,sPenalR=0,nPenalR=0,nPenalE=0;
   const factMes={},penalRMes={},penalEMes={};
   rows.forEach(r=>{
     estC[r.estado]=(estC[r.estado]||0)+1;
@@ -830,17 +902,32 @@ function renderDashboard(){
   <div class="alert-banner">
     <div class="alert-icon">⚠️</div>
     <div class="alert-body">
-      <div class="alert-label">Riesgo de penalización estimada</div>
-      <div class="alert-amount" id="kpiPenalEst">${euro(sPenalE)}</div>
-      <div class="alert-sub">10% base SERVEO · ${nPenalE} incidencias con plazo incumplido · clic para ver detalle</div>
+      <div class="alert-label">Control de ejecución — Presupuestos aprobados (plazo 60 días)</div>
+      <div style="font-size:11px;color:#92400e;margin-top:2px">Incidencias con <strong>Presupuesto aprobado</strong> · contador desde Fecha Aprobación AVRA</div>
     </div>
     <div class="alert-stats">
-      <div><div class="alert-stat-label">Vencidas</div><div class="alert-stat-val" style="color:var(--danger)" id="kpiVencidas">${nVenc}</div></div>
-      <div><div class="alert-stat-label">Aviso ≤3d</div><div class="alert-stat-val" style="color:var(--warning)" id="kpiAviso">${nWarn}</div></div>
-      <div><div class="alert-stat-label">En plazo</div><div class="alert-stat-val" style="color:var(--green)">${nOk}</div></div>
-      ${nPenalR>0?`<div><div class="alert-stat-label">Penal. reales</div><div class="alert-stat-val" style="color:var(--danger)" id="kpiPenalReal">${euro(sPenalR)}</div></div>`:''}
+      <div style="text-align:center;padding:12px 16px;background:var(--danger-light);border-radius:12px;cursor:pointer;border:1.5px solid #fecaca;min-width:100px" id="kpiVencidas">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--danger);margin-bottom:4px">⚠ Vencidas</div>
+        <div style="font-size:28px;font-weight:800;color:var(--danger);line-height:1">${nVenc60}</div>
+        <div style="font-size:10px;color:#b91c1c;margin-top:3px">+60 días sin facturar</div>
+      </div>
+      <div style="text-align:center;padding:12px 16px;background:var(--warning-light);border-radius:12px;cursor:pointer;border:1.5px solid #fed7aa;min-width:100px" id="kpiAviso">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#c07a30;margin-bottom:4px">⏱ Aviso</div>
+        <div style="font-size:28px;font-weight:800;color:var(--warning);line-height:1">${nAviso15}</div>
+        <div style="font-size:10px;color:#c07a30;margin-top:3px">≤15 días lab. para vencer</div>
+      </div>
+      <div style="text-align:center;padding:12px 16px;background:var(--green-xlight);border-radius:12px;border:1.5px solid #b7e4c7;min-width:100px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--green);margin-bottom:4px">✓ En plazo</div>
+        <div style="font-size:28px;font-weight:800;color:var(--green);line-height:1">${nEnPlazo}</div>
+        <div style="font-size:10px;color:var(--green-mid);margin-top:3px">Dentro de 60 días</div>
+      </div>
+      <div style="text-align:center;padding:12px 16px;background:var(--danger-light);border-radius:12px;cursor:pointer;border:2px solid var(--danger);min-width:120px" id="kpiPenalEst">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--danger);margin-bottom:4px">💶 Importe penal.</div>
+        <div style="font-size:18px;font-weight:800;color:var(--danger);line-height:1.2">${euro(importePenal*.1)}</div>
+        <div style="font-size:10px;color:#b91c1c;margin-top:3px">10% base de vencidas</div>
+      </div>
     </div>
-    <div style="width:160px;flex-shrink:0"><canvas id="spkPenal" height="40"></canvas></div>
+    ${nPenalR>0?`<div style="text-align:center;padding:10px 14px;background:#fff0f0;border-radius:10px;cursor:pointer;border:1px solid #fecaca" id="kpiPenalReal"><div style="font-size:10px;font-weight:700;color:var(--danger);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">Penal. reales registradas</div><div style="font-size:18px;font-weight:800;color:var(--danger)">${euro(sPenalR)}</div></div>`:''} 
   </div>
 
   ${allMeses.length?`<div class="card"><div class="card-header"><span class="card-title">Evolución mensual — Facturación y penalizaciones</span><span class="card-subtitle">${monthLabel(allMeses[0])} → ${monthLabel(allMeses[allMeses.length-1])}</span></div><div class="chart-wrap h260"><canvas id="mesChart"></canvas></div></div>`:''}
@@ -861,7 +948,7 @@ function renderDashboard(){
       <button class="tab ptab" data-tab="todas">Todas <span style="background:var(--bg);color:var(--text-sec);padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;margin-left:4px">${rows.length}</span></button>
     </div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Expediente</th><th>Municipio</th><th>F.Petición</th><th>Plazo ppto.(3d)</th><th>F.Aprobación</th><th>Plazo ejec.(2m)</th><th style="text-align:right">Base SERVEO</th><th style="text-align:right">Penal.est.</th></tr></thead>
+      <thead><tr><th>Expediente</th><th>Municipio</th><th>F.Aprobación AVRA</th><th>Estado plazo</th><th>Días restantes</th><th>F.Facturado</th><th style="text-align:right">Base SERVEO</th><th style="text-align:right">Penal.est.(10%)</th></tr></thead>
       <tbody id="plazoTbody"></tbody>
     </table></div>
   </div>`;
@@ -887,7 +974,32 @@ function renderDashboard(){
   renderPlazoTabla('vencidas');
   document.getElementById('plazoTbody').addEventListener('click',e=>{const el=e.target.closest('.exp-link');if(!el)return;const row=filteredRows.find(r=>r.exp===el.dataset.exp);if(row)openFicha(row);});
 
-  const kpiMap={kpiTotal:{title:'Todas',fn:r=>true},kpiAprobadas:{title:'Presupuesto aprobado',fn:r=>r.estado==='Aprobado'},kpiPdtePpto:{title:'Pdte. presupuesto',fn:r=>r.estado==='Pdte. presupuesto'},kpiPdteApr:{title:'Pdte. aprobación',fn:r=>r.estado==='Pdte. aprobación'},kpiFacturadas:{title:'Facturadas',fn:r=>r.esFacturada||r.obraLabel==='Facturado'},kpiNoProcede:{title:'No procede',fn:r=>r.estado==='No procede'},kpiPrior:{title:'Prioritarias',fn:r=>r.prior},kpiVencidas:{title:'Plazo vencido',fn:r=>r.p1Status==='vencido'||r.p2Status==='vencido'},kpiAviso:{title:'Aviso ≤3d lab.',fn:r=>r.p1Status==='warning'||r.p2Status==='warning'},kpiPenalEst:{title:'Con penalización estimada',fn:r=>r.penalEst>0},kpiPenalReal:{title:'Con penalización real',fn:r=>r.penalReal>0}};
+  const kpiMap={
+    kpiTotal:{title:'Todas las incidencias',fn:r=>true},
+    kpiAprobadas:{title:'Presupuesto aprobado',fn:r=>r.estado==='Aprobado'},
+    kpiPdtePpto:{title:'Pendiente presupuesto',fn:r=>r.estado==='Pdte. presupuesto'},
+    kpiPdteApr:{title:'Pendiente aprobación',fn:r=>r.estado==='Pdte. aprobación'},
+    kpiFacturadas:{title:'Facturadas',fn:r=>r.esFacturada||r.obraLabel==='Facturado'},
+    kpiNoProcede:{title:'No procede',fn:r=>r.estado==='No procede'},
+    kpiPrior:{title:'Prioritarias',fn:r=>r.prior},
+    kpiVencidas:{title:'Vencidas — +60 días desde aprobación sin facturar',fn:r=>{
+      if(r.estado!=='Aprobado'||r.esFacturada||!r.fApr)return false;
+      const lim=new Date(r.fApr);lim.setDate(lim.getDate()+60);
+      return hoyMs>lim;
+    }},
+    kpiAviso:{title:'Aviso — ≤15 días laborables para vencer',fn:r=>{
+      if(r.estado!=='Aprobado'||r.esFacturada||!r.fApr)return false;
+      const lim=new Date(r.fApr);lim.setDate(lim.getDate()+60);
+      const dl=diasLabRestantes(hoyMs,lim);
+      return hoyMs<=lim&&dl<=15;
+    }},
+    kpiPenalEst:{title:'Importe penalización (10% base vencidas)',fn:r=>{
+      if(r.estado!=='Aprobado'||r.esFacturada||!r.fApr)return false;
+      const lim=new Date(r.fApr);lim.setDate(lim.getDate()+60);
+      return hoyMs>lim;
+    }},
+    kpiPenalReal:{title:'Con penalización real registrada',fn:r=>r.penalReal>0},
+  };
   Object.entries(kpiMap).forEach(([id,{title,fn}])=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>openModal(title,filteredRows.filter(fn)));});
 }
 
