@@ -821,6 +821,22 @@ function renderDashboard(){
   const pen60Plazo     = rows.filter(r=>r._pen60==='plazo');
   const importePenal60 = pen60Vencidas.reduce((s,r)=>s+r.base*.1, 0);
 
+  // DIAGNÓSTICO TEMPORAL — eliminar tras verificar
+  const aprobadas60 = rows.filter(r=>r.estado==='Aprobado'&&!r.esFacturada&&r.fApr);
+  console.group('=== DIAGNÓSTICO 60 DÍAS ===');
+  console.log('Total filas:', rows.length);
+  console.log('Con estado Aprobado:', rows.filter(r=>r.estado==='Aprobado').length);
+  console.log('Con estado Aprobado + no facturada + fApr rellena:', aprobadas60.length);
+  aprobadas60.slice(0,5).forEach(r=>{
+    const diasT = diasLabTranscurridos(r.fApr, new Date());
+    console.log(`  ${r.exp} | fApr: ${r.fApr} | diasTransc: ${diasT} | _pen60: ${r._pen60}`);
+  });
+  console.log('Vencidas:', pen60Vencidas.length);
+  console.log('Aviso:', pen60Aviso.length);
+  console.log('Plazo:', pen60Plazo.length);
+  console.groupEnd();
+
+
   const facturadas=rows.filter(r=>r.esFacturada||r.obraLabel==='Facturado');
   const baseFactTotal=facturadas.reduce((s,r)=>s+r.base,0);
   const factMesHtml=Object.entries(factMes).sort().map(([k,v])=>`<span style="display:block;font-size:10px;color:rgba(255,255,255,.6)">${monthLabel(k)}: ${v.n} exp · ${euro(v.base)}</span>`).join('');
