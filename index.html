@@ -369,6 +369,15 @@ const fmtDate=v=>{const d=excelDate(v);return d?d.toLocaleDateString('es-ES',{da
 const monthKey=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`:null;
 const monthLabel=k=>{if(!k)return'';const[y,m]=k.split('-');return`${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m)-1]} ${y}`;};
 function addDiasLab(d,n){let cur=new Date(d),a=0;while(a<n){cur.setDate(cur.getDate()+1);if(cur.getDay()!==0&&cur.getDay()!==6)a++;}return cur;}
+function diasLabTranscurridos(desde,hasta){
+  if(!desde||!hasta)return 0;
+  let c=0,cur=new Date(desde);
+  cur.setHours(0,0,0,0);
+  const end=new Date(hasta);
+  end.setHours(0,0,0,0);
+  while(cur<end){cur.setDate(cur.getDate()+1);if(cur.getDay()!==0&&cur.getDay()!==6)c++;}
+  return c;
+}
 function diasLabRestantes(d1,d2){if(!d1||!d2)return 0;let c=0,cur=new Date(d1);const e=new Date(d2);while(cur<e){cur.setDate(cur.getDate()+1);if(cur.getDay()!==0&&cur.getDay()!==6)c++;}return c;}
 const add2M=d=>{const r=new Date(d);r.setMonth(r.getMonth()+2);return r;};
 function normEstado(s){s=norm(s);if(s.includes('NO PROCEDE'))return'No procede';if(s.includes('PENDIENTE PRESUPUESTO'))return'Pdte. presupuesto';if(s.includes('PENDIENTE APROBACION')||s.includes('PENDIENTE APROBACIÓN'))return'Pdte. aprobación';if(s.includes('PRESUPUESTO APROBADO'))return'Aprobado';return s||'Sin estado';}
@@ -788,11 +797,11 @@ function renderDashboard(){
     // Aplica solo a: ESTADO SERVEO = "Aprobado" Y no facturada
     const esAprobada = r.estado === 'Aprobado';
     if(esAprobada && !r.esFacturada && r.fApr){
-      const diasTransc = diasLabRestantes(r.fApr, hoy);
+      const diasTransc = diasLabTranscurridos(r.fApr, hoy);
       const diasRestantes60 = 60 - diasTransc;
       if(diasTransc >= 60){
         r._pen60 = 'vencida';
-        r._pen60Dias = diasTransc - 60; // días de retraso
+        r._pen60Dias = diasTransc - 60;
       } else if(diasRestantes60 <= 15){
         r._pen60 = 'aviso';
         r._pen60Dias = diasRestantes60;
