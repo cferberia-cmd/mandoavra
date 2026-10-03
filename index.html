@@ -432,7 +432,17 @@ function processRows(rows){
     const mu=KEYS.mun?String(r[KEYS.mun]||'').trim():'';
     const pr=KEYS.provincia?String(r[KEYS.provincia]||'').trim():'Jaén';
     const fullAddr=[tv,di,nu,mu,pr,'España'].filter(Boolean).join(', ');
-    return{raw:r,exp:r[KEYS.exp]||'—',municipio:mu,estado,obraLabel,prov:normProv(KEYS.prov?r[KEYS.prov]:null),base,total,penalReal,penalEst,excluida,esFacturada,fPet,fPres,fApr,fCon,fFact,p1Status,p1Dias,p2Status,p2Dias,prior:!!(KEYS.prior&&r[KEYS.prior]&&norm(r[KEYS.prior])!==''),fullAddr,geoKey:fullAddr.toLowerCase()};
+    const hoy2=new Date();hoy2.setHours(0,0,0,0);
+    const esAprobada2 = estado==='Aprobado';
+    let _pen60=null,_pen60Dias=null;
+    if(esAprobada2 && !esFacturada && fApr){
+      const diasT=diasLabTranscurridos(fApr,hoy2);
+      const diasR=60-diasT;
+      if(diasT>=60){_pen60='vencida';_pen60Dias=diasT-60;}
+      else if(diasR<=15){_pen60='aviso';_pen60Dias=diasR;}
+      else{_pen60='plazo';_pen60Dias=diasR;}
+    }
+    return{raw:r,exp:r[KEYS.exp]||'—',municipio:mu,estado,obraLabel,prov:normProv(KEYS.prov?r[KEYS.prov]:null),base,total,penalReal,penalEst,excluida,esFacturada,fPet,fPres,fApr,fCon,fFact,p1Status,p1Dias,p2Status,p2Dias,prior:!!(KEYS.prior&&r[KEYS.prior]&&norm(r[KEYS.prior])!==''),fullAddr,geoKey:fullAddr.toLowerCase(),_pen60,_pen60Dias};
   });
 }
 
