@@ -101,7 +101,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Inter','Sego
 .block-title span{background:var(--green);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
 
 /* KPI GRID */
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px;}
 .kpi-card{background:var(--surface);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);cursor:pointer;transition:all .2s;border:1.5px solid transparent;position:relative;overflow:hidden;}
 .kpi-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);border-color:var(--green-light);}
 .kpi-card.featured{background:linear-gradient(135deg,var(--green-dark) 0%,var(--green) 100%);}
@@ -111,11 +111,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Inter','Sego
 .kpi-icon svg{width:18px;height:18px;}
 .kpi-label{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-sec);margin-bottom:6px;}
 .kpi-card.featured .kpi-label{color:rgba(255,255,255,.7);}
-.kpi-value{font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-bottom:4px;}
+.kpi-value{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-bottom:4px;}
 .kpi-card.featured .kpi-value{color:#fff;}
 .kpi-sub{font-size:11px;color:var(--text-ter);line-height:1.4;}
 .kpi-card.featured .kpi-sub{color:rgba(255,255,255,.5);}
-.kpi-sparkline{margin-top:10px;height:36px;}
 
 /* ALERT BLOCK */
 .alert-block{background:linear-gradient(135deg,#fff0f0,#fff5f0);border:1.5px solid #fecaca;border-radius:var(--r);padding:20px 24px;margin-bottom:20px;}
@@ -354,6 +353,7 @@ tbody tr:hover td{background:var(--green-bg);}
       </div>
     </div>
   </div>
+
 <div class="overlay" id="fichaOverlay" style="display:none;">
   <div class="modal sm">
     <div class="modal-hdr"><h2 id="fichaTitle">Ficha</h2><button class="modal-close" id="fichaClose">✕</button></div>
@@ -448,7 +448,6 @@ function alertBadge(s,d){
   return`<span class="badge neutral">—</span>`;
 }
 function destroyCharts(){charts.forEach(c=>c.destroy());charts=[];}
-function sparkline(id,data,color){const ctx=document.getElementById(id);if(!ctx||!data.length)return;const c=new Chart(ctx,{type:'line',data:{labels:data.map((_,i)=>i),datasets:[{data,borderColor:color,borderWidth:2,fill:true,backgroundColor:color+'18',tension:.4,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}},animation:false}});charts.push(c);}
 
 /* ─── PROCESS ROWS ─── */
 function processRows(rows){
@@ -499,6 +498,7 @@ function processRows(rows){
     const base=Math.max(0,parseNum(KEYS.base?r[KEYS.base]:0));
     const total=parseNum(KEYS.total?r[KEYS.total]:0);
     const tipologia=KEYS.tipologia?String(r[KEYS.tipologia]||'').trim():'';
+    const esNoProcede=(tipologia.toUpperCase()==='NO PROCEDE'||estado==='No procede');
 
     // Penalización contabilizada
     const penalRawVal=KEYS.penal?r[KEYS.penal]:null;
@@ -561,7 +561,7 @@ function processRows(rows){
     const fullAddr=[tv,di,nu,bl,pi,pu,mu,pr,'España'].filter(Boolean).join(', ');
 
     return{raw:r,exp:r[KEYS.exp]||'—',municipio:mu,estado,obraLabel,prov:normProv(KEYS.prov?r[KEYS.prov]:null),
-      base,total,tipologia,penalReal,esPenalizada,posPenal,excluida,esFacturada,
+      base,total,tipologia,esNoProcede,penalReal,esPenalizada,posPenal,excluida,esFacturada,
       fSol:fSolVal,fEnv:fEnvVal,fApr:fAprVal,fCon:fConVal,fFact,fVis:fVisVal,fPresSub:fPresSubVal,
       p1Status,p1Dias,pen60,pen60Dias,diasTramitacion,
       prior:!!(KEYS.prior&&r[KEYS.prior]&&norm(r[KEYS.prior])!==''),
@@ -620,13 +620,11 @@ function applyFilters(){
   const campo=document.getElementById('filtroTipoFecha').value;
 
   filteredRows=rawRows.filter(r=>{
-    // Año — filtra sobre TODAS las fechas disponibles
     if(anio){
       const fechas=[r.fSol,r.fEnv,r.fApr,r.fFact,r.fCon].filter(Boolean);
       const match=fechas.some(f=>f.getFullYear()===parseInt(anio));
       if(!match)return false;
     }
-    // Rango de fechas
     const fd=getDateForField(r,campo);
     if(desde&&(!fd||fd<desde))return false;
     if(hasta){const h=new Date(hasta);h.setHours(23,59,59);if(!fd||fd>h)return false;}
@@ -686,7 +684,6 @@ function populateFiltros(){
   pop('filtroMunicipio',municipios,document.getElementById('filtroMunicipio').value);
   pop('filtroEstado',estados,document.getElementById('filtroEstado').value);
   pop('filtroTipologia',tipologias,document.getElementById('filtroTipologia').value);
-  // Sincronizar drawer móvil
   populateDrawer();
 }
 
@@ -860,18 +857,31 @@ function renderDashboard(){
     if(r.penalReal>0){sPenalR+=r.penalReal;nPenalR++;}
     if(r.prior)nPrior++;
     if(r.diasTramitacion!==null){sumaDiasTram+=r.diasTramitacion;nDiasTram++;}
-    // Para % cumplimiento plazo 3d
     if(!r.excluida&&r.fSol){nTotal3d++;if(r.p1Status==='cumplido'||r.p1Status==='ok'||r.p1Status==='warning')nEnPlazo++;}
-    // Por mes
     const addMes=(obj,d)=>{if(d){const k=monthKey(d);obj[k]=(obj[k]||{n:0,base:0});obj[k].n++;obj[k].base+=r.base;}};
     addMes(mesesSolicitud,r.fSol);addMes(mesesEnviado,r.fEnv);addMes(mesesApr,r.fApr);addMes(mesesFact,r.fFact);
   });
 
-  const facturadas=rows.filter(r=>r.esFacturada||r.obraLabel==='Facturado');
-  const pendPpto=rows.filter(r=>r.estado==='Pdte. presupuesto');
-  const pendApr=rows.filter(r=>r.estado==='Pdte. aprobación');
-  const noProcede=rows.filter(r=>r.estado==='No procede');
-  const aprobadas=rows.filter(r=>r.estado==='Aprobado');
+  // Cálculos para Bloque 2 solicitados por el usuario
+  const t1_TotalTablaInc = rawRows.length;
+  const t2_TotalPeriodoSinNoProcede = rows.filter(r=>!r.esNoProcede);
+  
+  const t3_PresupuestosEnviados = rows.filter(r=>!r.esNoProcede && r.fEnv !== null);
+  const t3_Importe = t3_PresupuestosEnviados.reduce((s,r)=>s+r.base,0);
+
+  const t4_PresupuestosAprobados = rows.filter(r=>!r.esNoProcede && r.estado==='Aprobado');
+  const t4_Importe = t4_PresupuestosAprobados.reduce((s,r)=>s+r.base,0);
+
+  const t5_PendientePresupuesto = rows.filter(r=>!r.esNoProcede && r.estado==='Pdte. presupuesto');
+
+  const t6_PendienteAprobacion = rows.filter(r=>!r.esNoProcede && r.estado==='Pdte. aprobación');
+  const t6_Importe = t6_PendienteAprobacion.reduce((s,r)=>s+r.base,0);
+
+  const t7_Facturadas = rows.filter(r=>!r.esNoProcede && (r.esFacturada||r.obraLabel==='Facturado'));
+  const t7_Importe = t7_Facturadas.reduce((s,r)=>s+r.base,0);
+
+  const t8_NoProceden = rows.filter(r=>r.esNoProcede);
+
   const tiempoMedio=nDiasTram>0?Math.round(sumaDiasTram/nDiasTram):null;
   const pctCumplimiento=nTotal3d>0?Math.round(nEnPlazo/nTotal3d*100):null;
   const munArr=Object.entries(munC).map(([n,v])=>({name:n,count:v,base:munBase[n]||0})).sort((a,b)=>b.count-a.count);
@@ -880,53 +890,72 @@ function renderDashboard(){
 
   document.getElementById('content').innerHTML=`
 
-  <!-- BLOQUE 2: KPIs GENERALES -->
-  <div class="block-title"><span>2</span>Resumen general del período</div>
+  <!-- BLOQUE 2: KPIs SOLICITADOS -->
+  <div class="block-title"><span>2</span>Métricas e incidencias del período</div>
   <div class="kpi-grid">
+    <!-- Card 1 -->
     <div class="kpi-card featured no-click">
       <div class="kpi-icon" style="background:rgba(255,255,255,.15)"><svg fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
-      <div class="kpi-label">Total en la tabla</div>
-      <div class="kpi-value">${rawRows.length}</div>
-      <div class="kpi-sub">Total absoluto sin filtros</div>
+      <div class="kpi-label">1. Total Incidencias Tabla</div>
+      <div class="kpi-value">${t1_TotalTablaInc}</div>
+      <div class="kpi-sub">Incluye No Proceden</div>
     </div>
-    <div class="kpi-card featured" id="kpiTotal">
+
+    <!-- Card 2 -->
+    <div class="kpi-card featured" id="kpiT2">
       <div class="kpi-icon" style="background:rgba(255,255,255,.15)"><svg fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg></div>
-      <div class="kpi-label">Incidencias en el período</div>
-      <div class="kpi-value">${rows.length}</div>
-      <div class="kpi-sub">Según filtros aplicados</div>
+      <div class="kpi-label">2. Total Período (Útiles)</div>
+      <div class="kpi-value">${t2_TotalPeriodoSinNoProcede.length}</div>
+      <div class="kpi-sub">Sin "No procede"</div>
     </div>
-    <div class="kpi-card" id="kpiAprobadas">
+
+    <!-- Card 3 -->
+    <div class="kpi-card" id="kpiT3">
+      <div class="kpi-icon" style="background:var(--info-light)"><svg fill="none" stroke="#457b9d" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg></div>
+      <div class="kpi-label">3. Pptos. Enviados a AVRA</div>
+      <div class="kpi-value" style="color:var(--info)">${t3_PresupuestosEnviados.length}</div>
+      <div class="kpi-sub">Suma Base: ${euro(t3_Importe)}</div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="kpi-card" id="kpiT4">
       <div class="kpi-icon" style="background:var(--green-xlight)"><svg fill="none" stroke="#2d6a4f" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-      <div class="kpi-label">Presupuestos aprobados</div>
-      <div class="kpi-value" style="color:var(--green)">${aprobadas.length}</div>
-      <div class="kpi-sub">${euro(aprobadas.reduce((s,r)=>s+r.base,0))} base</div>
+      <div class="kpi-label">4. Pptos. Aprobados</div>
+      <div class="kpi-value" style="color:var(--green)">${t4_PresupuestosAprobados.length}</div>
+      <div class="kpi-sub">Suma Base: ${euro(t4_Importe)}</div>
     </div>
-    <div class="kpi-card" id="kpiPdtePpto">
+
+    <!-- Card 5 -->
+    <div class="kpi-card" id="kpiT5">
       <div class="kpi-icon" style="background:var(--warning-light)"><svg fill="none" stroke="#c07a30" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg></div>
-      <div class="kpi-label">Pdte. presupuesto</div>
-      <div class="kpi-value" style="color:var(--warning)">${pendPpto.length}</div>
-      <div class="kpi-sub">Excluye no proceden</div>
+      <div class="kpi-label">5. Pendiente Presupuesto</div>
+      <div class="kpi-value" style="color:var(--warning)">${t5_PendientePresupuesto.length}</div>
+      <div class="kpi-sub">Sin "No procede"</div>
     </div>
-    <div class="kpi-card" id="kpiPdteApr">
+
+    <!-- Card 6 -->
+    <div class="kpi-card" id="kpiT6">
       <div class="kpi-icon" style="background:var(--info-light)"><svg fill="none" stroke="#457b9d" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-      <div class="kpi-label">Pdte. aprobación</div>
-      <div class="kpi-value" style="color:var(--info)">${pendApr.length}</div>
-      <div class="kpi-sub">Excluye no proceden</div>
+      <div class="kpi-label">6. Pendiente de Aprobación</div>
+      <div class="kpi-value" style="color:var(--info)">${t6_PendienteAprobacion.length}</div>
+      <div class="kpi-sub">Suma Base: ${euro(t6_Importe)}</div>
     </div>
-    <div class="kpi-card" id="kpiFacturadas">
+
+    <!-- Card 7 -->
+    <div class="kpi-card" id="kpiT7">
       <div class="kpi-icon" style="background:var(--purple-light)"><svg fill="none" stroke="#6d597a" stroke-width="2" viewBox="0 0 24 24"><path d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg></div>
-      <div class="kpi-label">Facturadas</div>
-      <div class="kpi-value" style="color:var(--purple)">${facturadas.length}</div>
-      <div class="kpi-sub">${euro(facturadas.reduce((s,r)=>s+r.base,0))} base</div>
+      <div class="kpi-label">7. Incidencias Facturadas</div>
+      <div class="kpi-value" style="color:var(--purple)">${t7_Facturadas.length}</div>
+      <div class="kpi-sub">Suma Base: ${euro(t7_Importe)}</div>
     </div>
-    <div class="kpi-card" id="kpiNoProcede">
+
+    <!-- Card 8 -->
+    <div class="kpi-card" id="kpiT8">
       <div class="kpi-icon" style="background:var(--danger-light)"><svg fill="none" stroke="#e63946" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div>
-      <div class="kpi-label">No proceden</div>
-      <div class="kpi-value" style="color:var(--danger)">${noProcede.length}</div>
-      <div class="kpi-sub">Descartadas</div>
+      <div class="kpi-label">8. No Proceden</div>
+      <div class="kpi-value" style="color:var(--danger)">${t8_NoProceden.length}</div>
+      <div class="kpi-sub">Tipología "NO PROCEDE"</div>
     </div>
-    ${tiempoMedio!==null?`<div class="kpi-card no-click"><div class="kpi-icon" style="background:#eef2ff"><svg fill="none" stroke="#4f46e5" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="kpi-label">Tiempo medio tramitación</div><div class="kpi-value" style="color:#4f46e5">${tiempoMedio}</div><div class="kpi-sub">días lab. solicitud → aprobación</div></div>`:''}
-    ${pctCumplimiento!==null?`<div class="kpi-card no-click"><div class="kpi-icon" style="background:var(--green-xlight)"><svg fill="none" stroke="#2d6a4f" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="kpi-label">% Cumplimiento plazo ppto.</div><div class="kpi-value" style="color:${pctCumplimiento>=80?'var(--green)':pctCumplimiento>=50?'var(--warning)':'var(--danger)'}">${pctCumplimiento}%</div><div class="kpi-sub">Presupuestos entregados en 3d lab.</div></div>`:''}
   </div>
 
   <!-- BLOQUE 3: PENALIZACIONES -->
@@ -966,7 +995,7 @@ function renderDashboard(){
   <!-- BLOQUE 4: GRÁFICOS -->
   <div class="block-title" style="margin-top:8px"><span>4</span>Análisis gráfico</div>
 
-  <!-- Gráfico 13: Estado + importe -->
+  <!-- Gráficos Estado + Obra -->
   <div class="charts-grid">
     <div class="card">
       <div class="card-header"><span class="card-title">Estado de incidencias</span><span class="card-subtitle">${rows.length} total · ${euro(sBase)} base</span></div>
@@ -980,40 +1009,42 @@ function renderDashboard(){
     </div>
   </div>
 
-  <!-- Gráfico 14: Evolución mensual fechas -->
+  <!-- Evolución mensual fechas -->
   ${allMeses.length?`<div class="card">
     <div class="card-header">
-      <span class="card-title">Gráfico 14 — Evolución mensual por fase</span>
+      <span class="card-title">Evolución mensual por fase</span>
       <span class="card-subtitle">${monthLabel(allMeses[0])} → ${monthLabel(allMeses[allMeses.length-1])}</span>
     </div>
     <div class="chart-wrap h260"><canvas id="fasesChart"></canvas></div>
   </div>`:''}
 
-  <!-- Gráfico 15: Tipología -->
+  <!-- Tipología -->
   ${tipoArr.length?`<div class="card">
-    <div class="card-header"><span class="card-title">Gráfico 15 — Incidencias por tipología</span><span class="card-subtitle">Número e importe</span></div>
+    <div class="card-header"><span class="card-title">Incidencias por tipología</span><span class="card-subtitle">Número e importe</span></div>
     <div class="chart-wrap h300"><canvas id="tipoChart"></canvas></div>
   </div>`:''}
 
-  <!-- Gráfico 16: Municipio -->
+  <!-- Municipio -->
   ${munArr.length?`<div class="card">
-    <div class="card-header"><span class="card-title">Gráfico 16 — Incidencias por municipio</span><span class="card-subtitle">Número e importe base</span></div>
+    <div class="card-header"><span class="card-title">Incidencias por municipio</span><span class="card-subtitle">Número e importe base</span></div>
     <div class="chart-wrap" style="height:${Math.max(200,munArr.length*36)}px"><canvas id="munChart"></canvas></div>
   </div>`:''}
   `;
 
   // ── KPI CLICK HANDLERS ──
   const kpiMap={
-    kpiTotal:    {title:'Todas las incidencias del período', fn:r=>true},
-    kpiAprobadas:{title:'Presupuesto aprobado',             fn:r=>r.estado==='Aprobado'},
-    kpiPdtePpto: {title:'Pendiente presupuesto',            fn:r=>r.estado==='Pdte. presupuesto'},
-    kpiPdteApr:  {title:'Pendiente aprobación',             fn:r=>r.estado==='Pdte. aprobación'},
-    kpiFacturadas:{title:'Facturadas',                      fn:r=>r.esFacturada||r.obraLabel==='Facturado'},
-    kpiNoProcede:{title:'No proceden',                      fn:r=>r.estado==='No procede'},
-    kpiVencidas: {title:'Vencidas +60d lab. sin facturar',  fn:r=>r.pen60==='vencida'},
-    kpiAviso:    {title:'Aviso — menos de 15d lab.',         fn:r=>r.pen60==='aviso'},
-    kpiPlazo:    {title:'En plazo de ejecución',            fn:r=>r.pen60==='plazo'},
-    kpiPenalReal:{title:'Con penalización contabilizada',   fn:r=>r.penalReal>0},
+    kpiT2: {title:'Total del período (Sin No procede)', fn:r=>!r.esNoProcede},
+    kpiT3: {title:'Presupuestos Enviados a AVRA (Sin No procede)', fn:r=>!r.esNoProcede && r.fEnv !== null},
+    kpiT4: {title:'Presupuestos Aprobados (Sin No procede)', fn:r=>!r.esNoProcede && r.estado==='Aprobado'},
+    kpiT5: {title:'Pendiente Presupuesto (Sin No procede)', fn:r=>!r.esNoProcede && r.estado==='Pdte. presupuesto'},
+    kpiT6: {title:'Pendiente de Aprobación (Sin No procede)', fn:r=>!r.esNoProcede && r.estado==='Pdte. aprobación'},
+    kpiT7: {title:'Incidencias Facturadas (Sin No procede)', fn:r=>!r.esNoProcede && (r.esFacturada||r.obraLabel==='Facturado')},
+    kpiT8: {title:'Incidencias "No procede"', fn:r=>r.esNoProcede},
+
+    kpiVencidas: {title:'Vencidas +60d lab. sin facturar', fn:r=>r.pen60==='vencida'},
+    kpiAviso:    {title:'Aviso — menos de 15d lab.', fn:r=>r.pen60==='aviso'},
+    kpiPlazo:    {title:'En plazo de ejecución', fn:r=>r.pen60==='plazo'},
+    kpiPenalReal:{title:'Con penalización contabilizada', fn:r=>r.penalReal>0},
   };
   Object.entries(kpiMap).forEach(([id,{title,fn}])=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>openModal(title,filteredRows.filter(fn)));});
 
@@ -1038,7 +1069,6 @@ function renderDashboard(){
     {l:'Facturado',v:obraC['Facturado']||0,c:'#6d597a'},
   ]);
 
-  // Gráfico 14: fases por mes — barras (nº incidencias) + línea (importe)
   if(allMeses.length&&document.getElementById('fasesChart')){
     const c=new Chart(document.getElementById('fasesChart'),{
       type:'bar',
@@ -1048,135 +1078,116 @@ function renderDashboard(){
           {label:'Solicitudes',data:allMeses.map(m=>mesesSolicitud[m]?mesesSolicitud[m].n:0),backgroundColor:'#74c69d',borderRadius:4,yAxisID:'y'},
           {label:'Enviados a AVRA',data:allMeses.map(m=>mesesEnviado[m]?mesesEnviado[m].n:0),backgroundColor:'#457b9d',borderRadius:4,yAxisID:'y'},
           {label:'Aprobados',data:allMeses.map(m=>mesesApr[m]?mesesApr[m].n:0),backgroundColor:'#2d6a4f',borderRadius:4,yAxisID:'y'},
-          {label:'Facturados',data:allMeses.map(m=>mesesFact[m]?mesesFact[m].n:0),backgroundColor:'#6d597a',borderRadius:4,yAxisID:'y'},
-          {label:'Base facturada (€)',data:allMeses.map(m=>mesesFact[m]?Math.round(mesesFact[m].base):0),type:'line',borderColor:'#e63946',backgroundColor:'#e6394615',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#e63946',yAxisID:'y2'},
+          {label:'Facturados',data:allMeses.map(m=>mesesFact[m]?mesesFact[m].n:0),backgroundColor:'#6d597a',borderRadius:4,yAxisID:'y'}
         ]
       },
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:10,boxHeight:10}},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y2'?`${c.dataset.label}: ${euro(c.parsed.y)}`:`${c.dataset.label}: ${c.parsed.y}`}}},
-        scales:{
-          y:{grid:{color:'#e4ebe7'},ticks:{font:{size:11}},title:{display:true,text:'Nº incidencias',font:{size:10}}},
-          y2:{position:'right',grid:{display:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k',font:{size:11}},title:{display:true,text:'Importe (€)',font:{size:10}}},
-          x:{grid:{display:false},ticks:{font:{size:11}}}
-        }
-      }
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{stepSize:1}}}}
     });
     charts.push(c);
   }
 
-  // Gráfico 15: Tipología — barras horizontales
   if(tipoArr.length&&document.getElementById('tipoChart')){
     const c=new Chart(document.getElementById('tipoChart'),{
       type:'bar',
       data:{
-        labels:tipoArr.map(t=>t.name||'Sin tipología'),
+        labels:tipoArr.map(t=>t.name),
         datasets:[
-          {label:'Nº incidencias',data:tipoArr.map(t=>t.count),backgroundColor:'#40916c',borderRadius:4,yAxisID:'y'},
-          {label:'Base SERVEO (€)',data:tipoArr.map(t=>Math.round(t.base)),type:'line',borderColor:'#f4a261',backgroundColor:'#f4a26115',fill:false,tension:.3,pointRadius:4,pointBackgroundColor:'#f4a261',yAxisID:'y2'},
+          {label:'Número de incidencias',data:tipoArr.map(t=>t.count),backgroundColor:'#2d6a4f',borderRadius:4,yAxisID:'y'},
+          {label:'Importe Base (€)',data:tipoArr.map(t=>t.base),type:'line',borderColor:'#f4a261',backgroundColor:'#f4a261',yAxisID:'y1'}
         ]
       },
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:10,boxHeight:10}},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y2'?`${c.dataset.label}: ${euro(c.parsed.y)}`:`${c.dataset.label}: ${c.parsed.y}`}}},
-        scales:{
-          y:{grid:{color:'#e4ebe7'},ticks:{font:{size:11}},title:{display:true,text:'Nº incidencias',font:{size:10}}},
-          y2:{position:'right',grid:{display:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k',font:{size:11}}},
-          x:{grid:{display:false},ticks:{font:{size:11}}}
-        }
-      }
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{x:{grid:{display:false}},y:{type:'linear',position:'left',beginAtZero:true},y1:{type:'linear',position:'right',beginAtZero:true,grid:{drawOnChartArea:false},ticks:{callback:v=>'€'+v}}}}
     });
     charts.push(c);
   }
 
-  // Gráfico 16: Municipio — barras horizontales con eje dual
   if(munArr.length&&document.getElementById('munChart')){
     const c=new Chart(document.getElementById('munChart'),{
       type:'bar',
       data:{
         labels:munArr.map(m=>m.name),
         datasets:[
-          {label:'Nº incidencias',data:munArr.map(m=>m.count),backgroundColor:'#40916c',borderRadius:4,xAxisID:'x'},
-          {label:'Base SERVEO (€)',data:munArr.map(m=>Math.round(m.base)),backgroundColor:'#74c69d99',borderRadius:4,xAxisID:'x2'},
+          {label:'Incidencias',data:munArr.map(m=>m.count),backgroundColor:'#40916c',borderRadius:4}
         ]
       },
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:10,boxHeight:10}},tooltip:{callbacks:{label:c=>c.datasetIndex===1?`Base: ${euro(c.parsed.x)}`:`Incidencias: ${c.parsed.x}`}}},
-        scales:{
-          x:{grid:{color:'#e4ebe7'},ticks:{font:{size:11}},title:{display:true,text:'Nº incidencias',font:{size:10}}},
-          x2:{position:'top',grid:{display:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k',font:{size:11}},title:{display:true,text:'Base (€)',font:{size:10}}},
-          y:{grid:{display:false},ticks:{font:{size:11}}}
-        }
-      }
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true},y:{grid:{display:false}}}}
     });
     charts.push(c);
   }
 }
 
-/* ─── CARGA ─── */
+/* ─── NAVEGACIÓN Y CARGA ─── */
+function initEvents(){
+  document.getElementById('navDash').addEventListener('click',()=>switchTab('dash'));
+  document.getElementById('navMap').addEventListener('click',()=>switchTab('map'));
+  document.getElementById('navRefresh').addEventListener('click',loadData);
+
+  document.getElementById('bnDash').addEventListener('click',()=>switchTab('dash'));
+  document.getElementById('bnMap').addEventListener('click',()=>switchTab('map'));
+  document.getElementById('bnFilter').addEventListener('click',openDrawer);
+  document.getElementById('bnRefresh').addEventListener('click',loadData);
+
+  document.getElementById('drawerClose').addEventListener('click',closeDrawer);
+  document.getElementById('drawerOverlay').addEventListener('click',closeDrawer);
+
+  document.getElementById('btnAplicar').addEventListener('click',applyFilters);
+  document.getElementById('btnLimpiar').addEventListener('click',limpiarFiltros);
+
+  document.getElementById('btnAplicar2').addEventListener('click',()=>{syncBarToDrawer();closeDrawer();applyFilters();});
+  document.getElementById('btnLimpiar2').addEventListener('click',()=>{limpiarFiltros();syncDrawerToBar();});
+
+  document.getElementById('fichaClose').addEventListener('click',()=>document.getElementById('fichaOverlay').style.display='none');
+  document.getElementById('modalClose').addEventListener('click',()=>document.getElementById('modalOverlay').style.display='none');
+
+  document.getElementById('btnDescargaExcel').addEventListener('click',descargarExcel);
+  document.getElementById('btnDescargaPDF').addEventListener('click',descargarPDF);
+
+  document.getElementById('modalBody').addEventListener('click',e=>{
+    const link=e.target.closest('.exp-link');
+    if(link){
+      const exp=link.dataset.exp;
+      document.getElementById('modalOverlay').style.display='none';
+      window._openFichaExp(exp);
+    }
+  });
+}
+
+function switchTab(t){
+  currentTab=t;
+  document.getElementById('navDash').classList.toggle('active',t==='dash');
+  document.getElementById('navMap').classList.toggle('active',t==='map');
+  document.getElementById('bnDash').classList.toggle('active',t==='dash');
+  document.getElementById('bnMap').classList.toggle('active',t==='map');
+
+  document.getElementById('dashTab').style.display=t==='dash'?'block':'none';
+  document.getElementById('dashTab-filters').style.display=t==='dash'?'block':'none';
+  document.getElementById('mapTab').style.display=t==='map'?'block':'none';
+
+  if(t==='dash')renderDashboard();else renderMap();
+}
+
 async function loadData(){
-  document.getElementById('statusText').textContent='Actualizando…';
+  document.getElementById('statusText').textContent='Cargando datos...';
   try{
     const res=await fetch(GIST_RAW+'?t='+Date.now());
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const json=await res.json();
-    rawRows=processRows(Array.isArray(json)?json:(json.value||[]));
+    if(!res.ok)throw new Error('HTTP Error '+res.status);
+    const data=await res.json();
+    rawRows=processRows(data);
     filteredRows=[...rawRows];
     populateFiltros();
-    const n=rawRows.length;
-    const nb=document.getElementById('navMapBadge');if(nb)nb.textContent=n;
-    const bnb=document.getElementById('bnMapBadge');if(bnb)bnb.textContent=n;
+    document.getElementById('statusText').textContent='Actualizado '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
     if(currentTab==='dash')renderDashboard();else renderMap();
-    document.getElementById('statusText').textContent='Act. '+new Date().toLocaleTimeString('es-ES');
   }catch(err){
-    document.getElementById('statusText').textContent='Error: '+err.message;
-    document.getElementById('content').innerHTML='<div class="placeholder"><strong>Sin conexión</strong>Verifica que Power Automate ha publicado el JSON en el Gist</div>';
+    console.error(err);
+    document.getElementById('statusText').textContent='Error al cargar datos';
   }
 }
 
-/* ─── NAV ─── */
-function switchTab(tab){
-  currentTab=tab;
-  document.getElementById('navDash').classList.toggle('active',tab==='dash');
-  document.getElementById('navMap').classList.toggle('active',tab==='map');
-  document.getElementById('dashTab').style.display=tab==='dash'?'block':'none';
-  document.getElementById('dashTab-filters').style.display=tab==='dash'?'block':'none';
-  document.getElementById('mapTab').style.display=tab==='map'?'block':'none';
-  if(tab==='map')renderMap();
-}
-
-/* ── BOTTOM NAV EVENTOS ── */
-document.getElementById('bnDash').addEventListener('click',()=>{
-  switchTab('dash');
-  document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
-  document.getElementById('bnDash').classList.add('active');
+document.addEventListener('DOMContentLoaded',()=>{
+  initEvents();
+  loadData();
+  setInterval(loadData,REFRESH_MS);
 });
-document.getElementById('bnMap').addEventListener('click',()=>{
-  switchTab('map');
-  document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
-  document.getElementById('bnMap').classList.add('active');
-});
-document.getElementById('bnFilter').addEventListener('click',openDrawer);
-document.getElementById('bnRefresh').addEventListener('click',loadData);
-document.getElementById('drawerClose').addEventListener('click',closeDrawer);
-document.getElementById('drawerOverlay').addEventListener('click',closeDrawer);
-document.getElementById('btnAplicar2').addEventListener('click',()=>{syncBarToDrawer();applyFilters();closeDrawer();});
-document.getElementById('btnLimpiar2').addEventListener('click',()=>{limpiarFiltros();closeDrawer();});
-
-document.getElementById('navDash').addEventListener('click',()=>switchTab('dash'));
-document.getElementById('navMap').addEventListener('click',()=>switchTab('map'));
-document.getElementById('navRefresh').addEventListener('click',loadData);
-document.getElementById('btnAplicar').addEventListener('click',applyFilters);
-document.getElementById('btnLimpiar').addEventListener('click',limpiarFiltros);
-document.getElementById('filtroTipoFecha').addEventListener('change',()=>{});
-document.getElementById('modalClose').addEventListener('click',()=>document.getElementById('modalOverlay').style.display='none');
-document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('modalOverlay'))document.getElementById('modalOverlay').style.display='none';});
-document.getElementById('fichaClose').addEventListener('click',()=>document.getElementById('fichaOverlay').style.display='none');
-document.getElementById('fichaOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('fichaOverlay'))document.getElementById('fichaOverlay').style.display='none';});
-document.getElementById('btnDescargaExcel').addEventListener('click',descargarExcel);
-document.getElementById('btnDescargaPDF').addEventListener('click',descargarPDF);
-document.getElementById('modalBody').addEventListener('click',e=>{const el=e.target.closest('.exp-link');if(!el)return;const row=rawRows.find(r=>r.exp===el.dataset.exp);if(row)openFicha(row);});
-
-loadData();
-setInterval(loadData,REFRESH_MS);
 </script>
 </body>
 </html>
