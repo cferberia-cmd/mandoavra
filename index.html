@@ -159,7 +159,7 @@ tbody tr:hover td{background:var(--green-bg);}
 .badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;}
 .badge.ok{background:var(--green-xlight);color:var(--green);}
 .badge.warn{background:var(--warning-light);color:#c07a30;}
-.badge.danger{background:var(--danger-light);color:var(--danger);}
+.badge.danger{background:var(--danger-light);color:#e63946;}
 .badge.neutral{background:var(--bg);color:var(--text-sec);}
 .badge.info{background:var(--info-light);color:var(--info);}
 .exp-link{color:var(--green);font-weight:700;cursor:pointer;}
@@ -376,6 +376,60 @@ tbody tr:hover td{background:var(--green-bg);}
 </div>
 
 <script>
+// --- SISTEMA DE VALIDACIÓN DE ACCESO TEMPORAL ---
+(function() {
+    // CLAVE SECRETA: Debe coincidir exactamente con la de tu generador de enlaces
+    const CLAVE_SECRETA = "AVRA_Jaen_Master_Key_2026_Secure_Guard"; 
+
+    function verificarAcceso() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        if (!token) {
+            bloquearPantalla("Acceso no autorizado. Se requiere un enlace de invitación válido.");
+            return;
+        }
+
+        try {
+            const decodedData = JSON.parse(atob(token));
+            const ahora = Math.floor(Date.now() / 1000);
+
+            if (ahora > decodedData.exp) {
+                bloquearPantalla("Este enlace temporal ha caducado. Solicite un nuevo acceso.");
+                return;
+            }
+
+            const firmaEsperada = btoa(decodedData.user + "_" + decodedData.exp + "_" + CLAVE_SECRETA);
+            if (decodedData.sig !== firmaEsperada) {
+                bloquearPantalla("Enlace de acceso inválido o manipulado.");
+                return;
+            }
+
+        } catch (e) {
+            bloquearPantalla("Error en el formato del token de acceso.");
+        }
+    }
+
+    function bloquearPantalla(mensaje) {
+        document.addEventListener("DOMContentLoaded", () => {
+            document.body.innerHTML = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f4f6f5;font-family:sans-serif;color:#111827;text-align:center;padding:20px;">
+                    <div style="background:#fff;padding:40px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.1);max-width:400px;width:100%;border:1.5px solid #e4ebe7;">
+                        <div style="font-size:40px;margin-bottom:15px;">🔒</div>
+                        <h2 style="font-size:18px;color:#e63946;margin-bottom:10px;">Acceso Restringido</h2>
+                        <p style="font-size:13px;color:#6b7a74;line-height:1.5;margin-bottom:20px;">${mensaje}</p>
+                        <div style="font-size:11px;color:#a0aea8;">Gestión de Incidencias · AVRA Jaén</div>
+                    </div>
+                </div>
+            `;
+        });
+        throw new Error("Acceso denegado");
+    }
+
+    verificarAcceso();
+})();
+
+// --- LÓGICA DEL DASHBOARD ---
 const GIST_RAW="https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
 const REFRESH_MS=5*60*1000;
 const GEO_CACHE_KEY='avra_geo_v4';
@@ -385,7 +439,6 @@ let geoCache={};try{geoCache=JSON.parse(localStorage.getItem(GEO_CACHE_KEY)||'{}
 let munMarkers={},dirMarkers={};
 let activeEstados=new Set(['Pdte. presupuesto','Pdte. aprobación','Aprobado','Facturado','No procede','Sin estado']);
 
-/* ─── UTILS ─── */
 const norm=s=>s?String(s).trim().toUpperCase().replace(/[\s\n]+/g,' '):'';
 function findKey(row,cands){const ks=Object.keys(row);for(const c of cands){const f=ks.find(k=>norm(k).includes(c));if(f)return f;}return null;}
 function parseNum(v){if(!v&&v!==0)return 0;if(typeof v==='number')return v;const n=parseFloat(String(v).replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3})/g,'').replace(',','.'));return isNaN(n)?0:n;}
@@ -410,7 +463,6 @@ const fmtDate=v=>{const d=excelDate(v);return d?d.toLocaleDateString('es-ES',{da
 const monthKey=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`:null;
 const monthLabel=k=>{if(!k)return'';const[y,m]=k.split('-');return`${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m)-1]} ${y}`;};
 
-// Formato numérico en español: punto para separación de miles y coma para decimales (ej: 1.007,21 €)
 const fmtNum=v=>new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:true}).format(parseFloat(v||0));
 const euro=v=>new Intl.NumberFormat('es-ES',{maximumFractionDigits:0,useGrouping:true}).format(Math.round(v))+' €';
 const euro2=v=>fmtNum(v)+' €';
@@ -451,7 +503,6 @@ function alertBadge(s,d){
 }
 function destroyCharts(){charts.forEach(c=>c.destroy());charts=[];}
 
-/* ─── PROCESS ROWS ─── */
 function processRows(rows){
   if(!rows.length)return[];
   const s=rows[0];
@@ -498,23 +549,26 @@ function processRows(rows){
     const estado=normEstado(KEYS.est?r[KEYS.est]:null);
     const obraLabel=normObra(KEYS.obra?r[KEYS.obra]:'',KEYS.est?r[KEYS.est]:'');
     const base=Math.max(0,parseNum(KEYS.base?r[KEYS.base]:0));
+    const baseSub=Math.max(0,parseNum(KEYS.baseSub?r[KEYS.baseSub]:0));
     const total=parseNum(KEYS.total?r[KEYS.total]:0);
     const tipologia=KEYS.tipologia?String(r[KEYS.tipologia]||'').trim():'';
     const estServeoRaw=KEYS.est?String(r[KEYS.est]||''):'';
     const esAprobadoServeo=estServeoRaw.toUpperCase().includes('PRESUPUESTO APROBADO');
     const esFacturadoServeo=estServeoRaw.toUpperCase().includes('FACTURADO');
 
-    // Penalización contabilizada
+    const margenEuro = base - baseSub;
+    const pctMargenCalculado = base > 0 ? (margenEuro / base) * 100 : 0;
+    const pctMargenExcel = parseNum(KEYS.margen ? r[KEYS.margen] : 0);
+    const margenPctFinal = pctMargenExcel || pctMargenCalculado;
+
     const penalRawVal=KEYS.penal?r[KEYS.penal]:null;
     const penalStr=penalRawVal?String(penalRawVal).trim():'';
     const penalNum=parseFloat(penalStr.replace(/[^\d,.-]/g,'').replace(',','.'));
     const penalReal=penalStr===''?0:(isNaN(penalNum)?base*0.1:penalNum);
     const esPenalizada=penalStr!=='';
 
-    // Posible penalización (texto libre)
     const posPenal=KEYS.posPenal?String(r[KEYS.posPenal]||'').trim():'';
 
-    // Fecha facturado
     const fFactRawVal=KEYS.fFact?r[KEYS.fFact]:null;
     const fFactStr=fFactRawVal?norm(String(fFactRawVal)):'';
     const fFactDate=(!fFactStr||fFactStr.includes('NO PROCEDE')||fFactStr.includes('PROCEDE'))?null:excelDate(fFactRawVal);
@@ -522,7 +576,6 @@ function processRows(rows){
     const esFacturada=fFactDate!==null||estadoNorm==='FACTURADO';
     const fFact=fFactDate;
 
-    // Fechas
     const fSolVal=excelDate(KEYS.fSolicitud?r[KEYS.fSolicitud]:null);
     const fEnvVal=excelDate(KEYS.fEnviado?r[KEYS.fEnviado]:null);
     const fAprVal=excelDate(KEYS.fApr?r[KEYS.fApr]:null);
@@ -530,10 +583,8 @@ function processRows(rows){
     const fVisVal=excelDate(KEYS.fVisitado?r[KEYS.fVisitado]:null);
     const fPresSubVal=excelDate(KEYS.fPresSub?r[KEYS.fPresSub]:null);
 
-    // Excluida del control de plazos
     const excluida=(obraLabel==='Facturado'||estado==='No procede'||esFacturada);
 
-    // Plazo presupuesto: 3 días lab desde solicitud hasta enviado a AVRA
     let p1Status='sin-fecha',p1Dias=null;
     if(!excluida&&fSolVal){
       const lim1=addDiasLab(fSolVal,3);
@@ -541,26 +592,30 @@ function processRows(rows){
       else{const dr=diasLabRestantes(HOY,lim1);if(HOY>lim1){p1Status='vencido';}else if(dr<=3){p1Status='warning';p1Dias=dr;}else{p1Status='ok';p1Dias=dr;}}
     }
 
-    // ── CÁLCULO DE PLAZOS (Vencidas, Aviso <15d, En Plazo) ──
+    let semaforoPpto = 'ok';
+    let diasPdtePpto = 0;
+    if (estado === 'Pdte. presupuesto' && fSolVal) {
+      diasPdtePpto = diasLabTranscurridos(fSolVal, HOY);
+      if (diasPdtePpto > 3) semaforoPpto = 'rojo';
+      else if (diasPdtePpto >= 2) semaforoPpto = 'amarillo';
+      else semaforoPpto = 'verde';
+    }
+
     let pen60=null,pen60Dias=null;
     let aviso15=false;
     let enPlazoPlat=false;
 
     if(esAprobadoServeo && !esFacturadoServeo && fAprVal!==null){
       const dt=diasLabTranscurridos(fAprVal,HOY);
-      
-      // 10. Aviso <15 días: >45 días hábiles desde Aprobación AVRA y no facturado
       if(dt > 45 && dt <= 60){
         aviso15=true;
         pen60='aviso';
         pen60Dias=60-dt;
       }
-      // 9. Vencidas: >60 días hábiles desde Aprobación AVRA y no facturado
       else if(dt > 60){
         pen60='vencida';
         pen60Dias=dt-60;
       }
-      // 11. En plazo: NO han pasado 60 días hábiles desde Aprobación AVRA y no facturado (dt <= 60)
       else if(dt <= 60){
         enPlazoPlat=true;
         pen60='plazo';
@@ -568,8 +623,8 @@ function processRows(rows){
       }
     }
 
-    // Tiempo tramitación: días lab entre solicitud y aprobación
     const diasTramitacion=(fSolVal&&fAprVal)?diasLabTranscurridos(fSolVal,fAprVal):null;
+    const diasRespuestaSub=(fSolVal&&fPresSubVal)?diasLabTranscurridos(fSolVal,fPresSubVal):null;
 
     const mu=KEYS.mun?String(r[KEYS.mun]||'').trim():'';
     const pr=KEYS.provincia?String(r[KEYS.provincia]||'').trim():'Jaén';
@@ -582,15 +637,15 @@ function processRows(rows){
     const fullAddr=[tv,di,nu,bl,pi,pu,mu,pr,'España'].filter(Boolean).join(', ');
 
     return{raw:r,exp:r[KEYS.exp]||'—',municipio:mu,estado,obraLabel,prov:normProv(KEYS.prov?r[KEYS.prov]:null),
-      base,total,tipologia,penalReal,esPenalizada,posPenal,excluida,esFacturada,
+      base,baseSub,margenEuro,margenPct:margenPctFinal,total,tipologia,penalReal,esPenalizada,posPenal,excluida,esFacturada,
       fSol:fSolVal,fEnv:fEnvVal,fApr:fAprVal,fCon:fConVal,fFact,fVis:fVisVal,fPresSub:fPresSubVal,
-      p1Status,p1Dias,pen60,pen60Dias,aviso15,enPlazoPlat,diasTramitacion,
+      p1Status,p1Dias,pen60,pen60Dias,aviso15,enPlazoPlat,diasTramitacion,diasRespuestaSub,
+      semaforoPpto,diasPdtePpto,
       prior:!!(KEYS.prior&&r[KEYS.prior]&&norm(r[KEYS.prior])!==''),
       fullAddr,geoKey:fullAddr.toLowerCase()};
   });
 }
 
-/* ── DRAWER FILTROS MÓVIL ── */
 function syncDrawerToBar(){
   ['Anio','Desde','Hasta','Municipio','Estado','Tipologia','TipoFecha'].forEach(k=>{
     const bar=document.getElementById('filtro'+k);
@@ -628,7 +683,6 @@ function getDateForField(row,campo){
   return row.fSol;
 }
 
-/* ─── FILTROS ─── */
 function applyFilters(){
   const anio=document.getElementById('filtroAnio').value;
   const dv=document.getElementById('filtroDesde').value;
@@ -708,7 +762,6 @@ function populateFiltros(){
   populateDrawer();
 }
 
-/* ─── FICHA ─── */
 function openFicha(row){
   const r=row.raw;
   const field=(l,v)=>`<div class="ficha-field"><div class="fl">${l}</div><div class="fv">${v||'—'}</div></div>`;
@@ -740,13 +793,14 @@ function openFicha(row){
       ${field('F. Conformidad',KEYS.fCon?fmtDate(r[KEYS.fCon]):null)}
       ${field('F. Facturado',KEYS.fFact?fmtDate(r[KEYS.fFact]):null)}
     </div></div>
-    <div class="ficha-section"><div class="ficha-section-title">Importes</div><div class="ficha-grid">
+    <div class="ficha-section"><div class="ficha-section-title">Importes y Margen</div><div class="ficha-grid">
       ${field('Base SERVEO',row.base>0?`<strong style="color:var(--green);font-size:14px">${euro2(row.base)}</strong>`:null)}
-      ${field('IVA',KEYS.iva&&r[KEYS.iva]?euro2(parseNum(r[KEYS.iva])):null)}
+      ${field('Base Subcontrata',row.baseSub>0?euro2(row.baseSub):null)}
+      ${field('Margen Bruto (€)',euro2(row.margenEuro))}
+      ${field('% Margen Bruto',fmtNum(row.margenPct)+'%')}
       ${field('Total c/IVA',row.total>0?euro2(row.total):null)}
       ${field('Penalización contab.',row.esPenalizada?penalStr(r):null)}
       ${field('Posible penalización',row.posPenal||null)}
-      ${KEYS.margen&&r[KEYS.margen]?field('% Margen bruto',r[KEYS.margen]+'%'):field('% Margen bruto',null)}
     </div></div>
     ${KEYS.reclamacion&&r[KEYS.reclamacion]?`<div class="ficha-section"><div class="ficha-section-title">Contenido de la reclamación</div><div class="recl">${r[KEYS.reclamacion]}</div></div>`:''}
     ${KEYS.obsServ&&r[KEYS.obsServ]?`<div class="ficha-section"><div class="ficha-section-title">Observaciones SERVEO</div><div class="recl">${r[KEYS.obsServ]}</div></div>`:''}
@@ -756,32 +810,30 @@ function openFicha(row){
 function penalStr(r){const v=KEYS.penal?r[KEYS.penal]:'';return v?String(v).trim():'—';}
 window._openFichaExp=exp=>{const row=rawRows.find(r=>r.exp===exp);if(row)openFicha(row);};
 
-/* ─── MODAL LISTADO ─── */
 function openModal(title,rows){
   modalTitleText=title;modalRows=rows;
   document.getElementById('modalTitle').textContent=`${title} (${rows.length})`;
   if(!rows.length){document.getElementById('modalBody').innerHTML='<div class="placeholder"><strong>Sin resultados</strong></div>';document.getElementById('modalOverlay').style.display='flex';return;}
   document.getElementById('modalBody').innerHTML=`<div class="tbl-wrap"><table><thead><tr>
-    <th>Expediente</th><th>Municipio</th><th>Tipología</th><th>Estado</th>
-    <th>F.Solicitud</th><th>F.Enviado</th><th>F.Aprobación</th><th>F.Facturado</th>
-    <th>Ejec.60d</th><th style="text-align:right">Base SERVEO</th><th style="text-align:right">Total</th>
+    <th>Expediente</th><th>Municipio</th><th>Proveedor</th><th>Tipología</th><th>Estado</th>
+    <th>F.Solicitud</th><th>F.Enviado</th><th>F.Aprobación</th>
+    <th>Base SERVEO</th><th>Margen %</th><th style="text-align:right">Total</th>
   </tr></thead><tbody>${rows.map(r=>`<tr>
     <td><span class="exp-link" data-exp="${r.exp}">${r.exp}</span></td>
-    <td>${r.municipio}</td><td>${r.tipologia||'—'}</td>
+    <td>${r.municipio}</td><td>${r.prov}</td><td>${r.tipologia||'—'}</td>
     <td><span class="badge" style="background:${colorForEstado(r.estado)}20;color:${colorForEstado(r.estado)}">${r.estado}</span></td>
     <td>${r.fSol?fmtDate(r.raw[KEYS.fSolicitud]):'—'}</td>
     <td>${r.fEnv?fmtDate(r.raw[KEYS.fEnviado]):'—'}</td>
     <td>${r.fApr?fmtDate(r.raw[KEYS.fApr]):'—'}</td>
-    <td>${r.fFact?fmtDate(r.raw[KEYS.fFact]):'—'}</td>
-    <td>${r.pen60?`<span class="badge ${r.pen60==='vencida'?'danger':r.pen60==='aviso'?'warn':'ok'}">${r.pen60==='vencida'?'+'+r.pen60Dias+'d':r.pen60==='aviso'?r.pen60Dias+'d':'✓'}</span>`:'—'}</td>
-    <td style="text-align:right">${r.base>0?euro2(r.base):'—'}</td>
+    <td>${r.base>0?euro2(r.base):'—'}</td>
+    <td><strong style="color:${r.margenPct<20?'var(--danger)':'var(--green)'}">${fmtNum(r.margenPct)}%</strong></td>
     <td style="text-align:right">${r.total>0?euro2(r.total):'—'}</td>
   </tr>`).join('')}</tbody></table></div>`;
   document.getElementById('modalOverlay').style.display='flex';
 }
 function descargarExcel(){
-  const data=modalRows.map(r=>({'Expediente':r.exp,'Municipio':r.municipio,'Tipología':r.tipologia,'Estado':r.estado,'F.Solicitud':r.fSol?fmtDate(r.raw[KEYS.fSolicitud]):'','F.Enviado':r.fEnv?fmtDate(r.raw[KEYS.fEnviado]):'','F.Aprobación':r.fApr?fmtDate(r.raw[KEYS.fApr]):'','F.Facturado':r.fFact?fmtDate(r.raw[KEYS.fFact]):'','Base SERVEO':r.base,'Total':r.total}));
-  const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Incidencias');XLSX.writeFile(wb,`${modalTitleText.replace(/[^a-zA-Z0-9]/g,'_')}.xlsx`);
+  const data=modalRows.map(r=>({'Expediente':r.exp,'Municipio':r.municipio,'Proveedor':r.prov,'Tipología':r.tipologia,'Estado':r.estado,'F.Solicitud':r.fSol?fmtDate(r.raw[KEYS.fSolicitud]):'','F.Enviado':r.fEnv?fmtDate(r.raw[KEYS.fEnviado]):'','F.Aprobación':r.fApr?fmtDate(r.raw[KEYS.fApr]):'','Base SERVEO':r.base,'Base Subcontrata':r.baseSub,'Margen Euro':r.margenEuro,'Margen Pct':r.margenPct,'Total':r.total}));
+  const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Incidencias');XLSX.writeFile(wb,`${modalTitleText.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
 }
 function descargarPDF(){
   const w=window.open('','_blank');
@@ -789,7 +841,6 @@ function descargarPDF(){
   w.document.close();
 }
 
-/* ─── MAPA ─── */
 const munGeoCache={};
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function geocodeMun(mun,intentos=3){if(munGeoCache[mun])return munGeoCache[mun];for(let i=0;i<intentos;i++){try{const q=encodeURIComponent(`${mun}, Jaén, España`);const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});if(!res.ok){await sleep(2000*(i+1));continue;}const d=await res.json();if(d&&d[0]){const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};munGeoCache[mun]=c;return c;}}catch(e){await sleep(2000*(i+1));}}return null;}
@@ -851,39 +902,62 @@ async function renderMap(){
   document.getElementById('mapIncList').addEventListener('click',e=>{const item=e.target.closest('[data-exp]');if(!item)return;const row=filteredRows.find(r=>r.exp===item.dataset.exp);if(!row)return;const dm=dirMarkers[row.exp];if(dm){leafletMap.setView(dm.getLatLng(),16,{animate:true});dm.openPopup();return;}const mm=munMarkers[row.municipio];if(mm){leafletMap.setView(mm.getLatLng(),13,{animate:true});mm.openPopup();}else openFicha(row);});
 }
 
-/* ─── DASHBOARD RENDER ─── */
 function renderDashboard(){
   destroyCharts();
   const rows=filteredRows;
   if(!rows.length){document.getElementById('content').innerHTML='<div class="placeholder"><strong>Sin resultados</strong>Prueba a cambiar los filtros</div>';return;}
 
-  // ── AGREGADOS ──
-  const estC={},obraC={},munC={},munBase={},tipoC={},tipoBase={};
-  let sBase=0,sTotal=0,nPrior=0;
-  const mesesSolicitud={},mesesEnviado={},mesesApr={},mesesFact={};
+  const estC={},obraC={},munC={},munBase={},tipoC={},tipoBase={},tipoMargen={};
+  const provCount={},provDiasSub={},provBase={};
+  let sBase=0,sBaseSub=0,sTotal=0,nPrior=0;
+  const mesesSolicitud={},mesesEnviado={},mesesApr={},mesesFact={},mesesRiesgo={};
   let sumaDiasTram=0,nDiasTram=0,nEnPlazo=0,nTotal3d=0;
 
-  // Listas de plazos según reglas actualizadas
+  const pdteVerde = rows.filter(r=>r.semaforoPpto==='verde');
+  const pdteAmarillo = rows.filter(r=>r.semaforoPpto==='amarillo');
+  const pdteRojo = rows.filter(r=>r.semaforoPpto==='rojo');
+
   const pen60Vencidas=rows.filter(r=>r.pen60==='vencida');
   const pen60Aviso=rows.filter(r=>r.aviso15===true);
   const pen60Plazo=rows.filter(r=>r.enPlazoPlat===true);
 
-  // 12. IMPORTE BASE PENALIZACION ACTUAL: Suma de los importes base de las incidencias vencidas
   const importePenalBase=pen60Vencidas.reduce((s,r)=>s+r.base,0);
-  // 13. IMPORTE PENALIZACION ACTUAL 10%: El 10% del importe total base de penalización anterior
   const importePenal10=importePenalBase*0.1;
 
   rows.forEach(r=>{
     estC[r.estado]=(estC[r.estado]||0)+1;
     if(r.obraLabel)obraC[r.obraLabel]=(obraC[r.obraLabel]||0)+1;
     if(r.municipio){munC[r.municipio]=(munC[r.municipio]||0)+1;munBase[r.municipio]=(munBase[r.municipio]||0)+r.base;}
-    if(r.tipologia){tipoC[r.tipologia]=(tipoC[r.tipologia]||0)+1;tipoBase[r.tipologia]=(tipoBase[r.tipologia]||0)+r.base;}
-    sBase+=r.base;sTotal+=r.total;
+    
+    if(r.tipologia){
+      tipoC[r.tipologia]=(tipoC[r.tipologia]||0)+1;
+      tipoBase[r.tipologia]=(tipoBase[r.tipologia]||0)+r.base;
+      tipoMargen[r.tipologia]=(tipoMargen[r.tipologia]||[]).concat(r.margenPct);
+    }
+
+    if(r.prov){
+      provCount[r.prov]=(provCount[r.prov]||0)+1;
+      provBase[r.prov]=(provBase[r.prov]||0)+r.base;
+      if(r.diasRespuestaSub!==null){
+        if(!provDiasSub[r.prov])provDiasSub[r.prov]=[];
+        provDiasSub[r.prov].push(r.diasRespuestaSub);
+      }
+    }
+
+    sBase+=r.base;
+    sBaseSub+=r.baseSub;
+    sTotal+=r.total;
+
     if(r.prior)nPrior++;
     if(r.diasTramitacion!==null){sumaDiasTram+=r.diasTramitacion;nDiasTram++;}
     if(!r.excluida&&r.fSol){nTotal3d++;if(r.p1Status==='cumplido'||r.p1Status==='ok'||r.p1Status==='warning')nEnPlazo++;}
-    const addMes=(obj,d)=>{if(d){const k=monthKey(d);obj[k]=(obj[k]||{n:0,base:0});obj[k].n++;obj[k].base+=r.base;}};
-    addMes(mesesSolicitud,r.fSol);addMes(mesesEnviado,r.fEnv);addMes(mesesApr,r.fApr);addMes(mesesFact,r.fFact);
+
+    const addMes=(obj,d,val=1)=>{if(d){const k=monthKey(d);obj[k]=(obj[k]||{n:0,base:0});obj[k].n+=val;obj[k].base+=r.base;}};
+    addMes(mesesSolicitud,r.fSol);
+    addMes(mesesEnviado,r.fEnv);
+    addMes(mesesApr,r.fApr);
+    addMes(mesesFact,r.fFact);
+    if(r.pen60==='vencida'||r.pen60==='aviso') addMes(mesesRiesgo,r.fApr,1);
   });
 
   const noProcede=rows.filter(r=>r.estado==='No procede'||r.tipologia.toUpperCase().includes('NO PROCEDE'));
@@ -895,15 +969,26 @@ function renderDashboard(){
   const pendApr=rowsProc.filter(r=>r.estado==='Pdte. aprobación');
   const facturadas=rowsProc.filter(r=>r.esFacturada||r.obraLabel==='Facturado');
 
-  const tiempoMedio=nDiasTram>0?Math.round(sumaDiasTram/nDiasTram):null;
-  const pctCumplimiento=nTotal3d>0?Math.round(nEnPlazo/nTotal3d*100):null;
   const munArr=Object.entries(munC).map(([n,v])=>({name:n,count:v,base:munBase[n]||0})).sort((a,b)=>b.count-a.count);
-  const tipoArr=Object.entries(tipoC).map(([n,v])=>({name:n,count:v,base:tipoBase[n]||0})).sort((a,b)=>b.count-a.count);
+  const tipoArr=Object.entries(tipoC).map(([n,v])=>{
+    const arrM=tipoMargen[n]||[0];
+    const avgM=arrM.reduce((a,b)=>a+b,0)/arrM.length;
+    return {name:n,count:v,base:tipoBase[n]||0,margenAvg:avgM};
+  }).sort((a,b)=>b.base-a.base);
+
+  const provArr=Object.entries(provCount).map(([n,v])=>{
+    const arrD=provDiasSub[n]||[0];
+    const avgD=arrD.length?Math.round(arrD.reduce((a,b)=>a+b,0)/arrD.length):0;
+    return {name:n,count:v,base:provBase[n]||0,diasAvg:avgD};
+  }).sort((a,b)=>b.count-a.count);
+
   const allMeses=[...new Set([...Object.keys(mesesSolicitud),...Object.keys(mesesEnviado),...Object.keys(mesesApr),...Object.keys(mesesFact)])].sort();
+
+  const margenBrutoGlobalEuro = sBase - sBaseSub;
+  const pctMargenBrutoGlobal = sBase > 0 ? (margenBrutoGlobalEuro / sBase) * 100 : 0;
 
   document.getElementById('content').innerHTML=`
 
-  <!-- BLOQUE 2: TARJETAS KPI -->
   <div class="block-title"><span>2</span>Resumen general del período</div>
   <div class="kpi-grid">
     <div class="kpi-card featured no-click">
@@ -948,49 +1033,92 @@ function renderDashboard(){
       <div class="kpi-value" style="color:var(--purple)">${facturadas.length}</div>
       <div class="kpi-sub">Suma: ${euro2(facturadas.reduce((s,r)=>s+r.base,0))}</div>
     </div>
-    <div class="kpi-card" id="kpiNoProcede">
-      <div class="kpi-icon" style="background:var(--danger-light)"><svg fill="none" stroke="#e63946" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div>
-      <div class="kpi-label">8. No proceden</div>
-      <div class="kpi-value" style="color:var(--danger)">${noProcede.length}</div>
-      <div class="kpi-sub">Tipología/Estado "No procede"</div>
+    <div class="kpi-card" id="kpiMargenBruto">
+      <div class="kpi-icon" style="background:var(--green-xlight)"><svg fill="none" stroke="#2d6a4f" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+      <div class="kpi-label">Margen Bruto Global</div>
+      <div class="kpi-value" style="color:var(--green)">${fmtNum(pctMargenBrutoGlobal)}%</div>
+      <div class="kpi-sub">Beneficio: ${euro2(margenBrutoGlobalEuro)}</div>
     </div>
   </div>
 
-  <!-- BLOQUE 3: PENALIZACIONES Y PLAZOS -->
-  <div class="block-title" style="margin-top:8px"><span>3</span>Control de ejecución — Penalizaciones (Días hábiles desde aprobación AVRA)</div>
-  <div class="alert-block">
-    <div class="alert-block-title">⚠ Seguimiento de plazos — Presupuestos aprobados no facturados</div>
-    <div class="alert-kpis">
-      <div class="alert-kpi" id="kpiVencidas">
-        <div class="alert-kpi-label">9. INCIDENCIAS VENCIDAS (>60 días hábiles)</div>
-        <div class="alert-kpi-value" style="color:var(--danger)">${pen60Vencidas.length}</div>
-        <div class="alert-kpi-sub">Sup. 60d hábiles con F. Aprobación</div>
+  <div class="block-title" style="margin-top:8px"><span>3</span>Control de ejecución — Penalizaciones y Semáforo de Pendientes</div>
+  
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;">
+    <div class="alert-block" style="margin-bottom:0">
+      <div class="alert-block-title">⚠ Seguimiento de plazos — Presupuestos aprobados no facturados</div>
+      <div class="alert-kpis">
+        <div class="alert-kpi" id="kpiVencidas">
+          <div class="alert-kpi-label">9. INCIDENCIAS VENCIDAS (>60d)</div>
+          <div class="alert-kpi-value" style="color:var(--danger)">${pen60Vencidas.length}</div>
+          <div class="alert-kpi-sub">Sup. 60d hábiles aprobados</div>
+        </div>
+        <div class="alert-kpi" id="kpiAviso">
+          <div class="alert-kpi-label">10. Aviso <15 días (>45d)</div>
+          <div class="alert-kpi-value" style="color:var(--warning)">${pen60Aviso.length}</div>
+          <div class="alert-kpi-sub">>45d hábiles desde aprobación</div>
+        </div>
+        <div class="alert-kpi" id="kpiPlazo">
+          <div class="alert-kpi-label">11. Incidencias en plazo (≤60d)</div>
+          <div class="alert-kpi-value" style="color:var(--green)">${pen60Plazo.length}</div>
+          <div class="alert-kpi-sub">Dentro de los 60d hábiles</div>
+        </div>
+        <div class="alert-kpi no-click" id="kpiBasePenal">
+          <div class="alert-kpi-label">12. Base Penalización Actual</div>
+          <div class="alert-kpi-value" style="color:var(--danger);font-size:18px">${euro2(importePenalBase)}</div>
+          <div class="alert-kpi-sub">Base vencidas</div>
+        </div>
+        <div class="alert-kpi no-click" id="kpiPenal10">
+          <div class="alert-kpi-label">13. PENALIZACIÓN ACTUAL 10%</div>
+          <div class="alert-kpi-value" style="color:var(--danger);font-size:18px">${euro2(importePenal10)}</div>
+          <div class="alert-kpi-sub">10% del importe vencido</div>
+        </div>
       </div>
-      <div class="alert-kpi" id="kpiAviso">
-        <div class="alert-kpi-label">10. Aviso <15 días (>45 días hábiles)</div>
-        <div class="alert-kpi-value" style="color:var(--warning)">${pen60Aviso.length}</div>
-        <div class="alert-kpi-sub">>45d hábiles desde aprobación</div>
-      </div>
-      <div class="alert-kpi" id="kpiPlazo">
-        <div class="alert-kpi-label">11. Incidencias en plazo (≤60 días hábiles)</div>
-        <div class="alert-kpi-value" style="color:var(--green)">${pen60Plazo.length}</div>
-        <div class="alert-kpi-sub">Dentro de los 60d hábiles</div>
-      </div>
-      <div class="alert-kpi no-click" id="kpiBasePenal">
-        <div class="alert-kpi-label">12. Importe Base Penalización Actual</div>
-        <div class="alert-kpi-value" style="color:var(--danger);font-size:20px">${euro2(importePenalBase)}</div>
-        <div class="alert-kpi-sub">Suma base SERVEO vencidas</div>
-      </div>
-      <div class="alert-kpi no-click" id="kpiPenal10">
-        <div class="alert-kpi-label">13. IMPORTE PENALIZACIÓN ACTUAL 10%</div>
-        <div class="alert-kpi-value" style="color:var(--danger);font-size:20px">${euro2(importePenal10)}</div>
-        <div class="alert-kpi-sub">10% del importe base vencidas</div>
+    </div>
+
+    <div class="alert-block" style="background:#fff;border-color:var(--border);margin-bottom:0">
+      <div class="alert-block-title" style="color:var(--text-sec)">🚦 Alerta Temprana — Pendientes Presupuesto</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+        <div class="alert-kpi" id="kpiSemRojo" style="border-color:#fecaca;background:var(--danger-light);display:flex;justify-content:space-between;align-items:center;">
+          <div><div class="alert-kpi-label" style="color:var(--danger)">🔴 Crítico (>3 días)</div><div class="alert-kpi-sub">Sin respuesta de subcontrata</div></div>
+          <div class="alert-kpi-value" style="color:var(--danger)">${pdteRojo.length}</div>
+        </div>
+        <div class="alert-kpi" id="kpiSemAmarillo" style="border-color:#fde68a;background:var(--warning-light);display:flex;justify-content:space-between;align-items:center;">
+          <div><div class="alert-kpi-label" style="color:#c07a30">🟡 En Rango (2-3 días)</div><div class="alert-kpi-sub">Requiere seguimiento</div></div>
+          <div class="alert-kpi-value" style="color:#c07a30">${pdteAmarillo.length}</div>
+        </div>
+        <div class="alert-kpi" id="kpiSemVerde" style="border-color:var(--green-light);background:var(--green-xlight);display:flex;justify-content:space-between;align-items:center;">
+          <div><div class="alert-kpi-label" style="color:var(--green)">🟢 Al día (<2 días)</div><div class="alert-kpi-sub">Dentro de plazo inicial</div></div>
+          <div class="alert-kpi-value" style="color:var(--green)">${pdteVerde.length}</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- BLOQUE 4: GRÁFICOS -->
-  <div class="block-title" style="margin-top:8px"><span>4</span>Análisis gráfico</div>
+  <div class="block-title" style="margin-top:8px"><span>4</span>Análisis Avanzado de Eficiencia y Rentabilidad</div>
+
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-header"><span class="card-title">1. Respuesta Media por Subcontrata</span><span class="card-subtitle">Días hábiles en elaborar presupuesto</span></div>
+      <div class="chart-wrap h260"><canvas id="provChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">2. Rentabilidad y Margen Bruto</span><span class="card-subtitle">Base SERVEO vs % Margen por Tipología</span></div>
+      <div class="chart-wrap h260"><canvas id="rentabilidadChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-header"><span class="card-title">3. Embudo Operativo de Tramitación</span><span class="card-subtitle">Conversión por fases del servicio</span></div>
+      <div class="chart-wrap h260"><canvas id="funnelChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">4. Facturado Real vs Importe en Riesgo</span><span class="card-subtitle">Evolución por fecha de aprobación</span></div>
+      <div class="chart-wrap h260"><canvas id="riesgoChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="block-title" style="margin-top:8px"><span>5</span>Análisis Operativo y Distribución Geográfica</div>
 
   <div class="charts-grid">
     <div class="card">
@@ -1013,18 +1141,12 @@ function renderDashboard(){
     <div class="chart-wrap h260"><canvas id="fasesChart"></canvas></div>
   </div>`:''}
 
-  ${tipoArr.length?`<div class="card">
-    <div class="card-header"><span class="card-title">Incidencias por tipología</span><span class="card-subtitle">Número e importe</span></div>
-    <div class="chart-wrap h300"><canvas id="tipoChart"></canvas></div>
-  </div>`:''}
-
   ${munArr.length?`<div class="card">
     <div class="card-header"><span class="card-title">Incidencias por municipio</span><span class="card-subtitle">Número e importe base</span></div>
     <div class="chart-wrap" style="height:${Math.max(200,munArr.length*36)}px"><canvas id="munChart"></canvas></div>
   </div>`:''}
   `;
 
-  // ── HANDLERS MODALES KPI ──
   const kpiMap={
     kpiTotalProc:{title:'2. Incidencias en el período (excluyendo "No procede")', fn:r=>r.estado!=='No procede'&&!r.tipologia.toUpperCase().includes('NO PROCEDE')},
     kpiEnviados: {title:'3. Presupuestos enviados a AVRA (sin "No procede")', fn:r=>r.fEnv!==null && r.estado!=='No procede'&&!r.tipologia.toUpperCase().includes('NO PROCEDE')},
@@ -1033,15 +1155,138 @@ function renderDashboard(){
     kpiPdteApr:  {title:'6. Pendiente de aprobación (sin "No procede")', fn:r=>r.estado==='Pdte. aprobación' && !r.tipologia.toUpperCase().includes('NO PROCEDE')},
     kpiFacturadas:{title:'7. Incidencias facturadas (sin "No procede")', fn:r=>(r.esFacturada||r.obraLabel==='Facturado') && r.estado!=='No procede'&&!r.tipologia.toUpperCase().includes('NO PROCEDE')},
     kpiNoProcede:{title:'8. Incidencias que no proceden', fn:r=>r.estado==='No procede'||r.tipologia.toUpperCase().includes('NO PROCEDE')},
+    kpiMargenBruto:{title:'Incidencias con Margen Bruto Calculado', fn:r=>r.base>0},
     kpiVencidas: {title:'9. INCIDENCIAS VENCIDAS (>60 días hábiles desde aprobación AVRA)', fn:r=>r.pen60==='vencida'},
     kpiAviso:    {title:'10. Aviso de incidencias <15 días (>45 días hábiles)', fn:r=>r.aviso15===true},
     kpiPlazo:    {title:'11. Incidencias en plazo (≤60 días hábiles)', fn:r=>r.enPlazoPlat===true},
-    kpiBasePenal:{title:'12. Importe Base Penalización Actual', fn:r=>r.pen60==='vencida'},
-    kpiPenal10:  {title:'13. IMPORTE PENALIZACIÓN ACTUAL 10%', fn:r=>r.pen60==='vencida'}
+    kpiSemRojo:  {title:'CRÍTICO: Pendiente Presupuesto (>3 días hábiles)', fn:r=>r.semaforoPpto==='rojo'},
+    kpiSemAmarillo:{title:'AVISO: Pendiente Presupuesto (2 a 3 días hábiles)', fn:r=>r.semaforoPpto==='amarillo'},
+    kpiSemVerde: {title:'AL DÍA: Pendiente Presupuesto (<2 días hábiles)', fn:r=>r.semaforoPpto==='verde'}
   };
   Object.entries(kpiMap).forEach(([id,{title,fn}])=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>openModal(title,filteredRows.filter(fn)));});
 
-  // ── CHARTS ──
+  if(provArr.length && document.getElementById('provChart')){
+    const c = new Chart(document.getElementById('provChart'), {
+      type: 'bar',
+      data: {
+        labels: provArr.map(p=>p.name),
+        datasets: [{
+          label: 'Días hábiles medios',
+          data: provArr.map(p=>p.diasAvg),
+          backgroundColor: '#457b9d',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (e, items) => {
+          if (items.length) {
+            const provName = provArr[items[0].index].name;
+            openModal(`Incidencias de la subcontrata: ${provName}`, filteredRows.filter(r => r.prov === provName));
+          }
+        },
+        plugins: { legend: { display: false } },
+        scales: { x: { title: { display: true, text: 'Días hábiles' } } }
+      }
+    });
+    charts.push(c);
+  }
+
+  if(tipoArr.length && document.getElementById('rentabilidadChart')){
+    const c = new Chart(document.getElementById('rentabilidadChart'), {
+      type: 'bar',
+      data: {
+        labels: tipoArr.map(t=>t.name||'Sin tipología'),
+        datasets: [
+          { label: 'Base SERVEO (€)', data: tipoArr.map(t=>Math.round(t.base)), backgroundColor: '#2d6a4f', borderRadius: 4, yAxisID: 'y' },
+          { label: '% Margen Bruto', data: tipoArr.map(t=>parseFloat(t.margenAvg.toFixed(2))), type: 'line', borderColor: '#e63946', backgroundColor: '#e63946', pointRadius: 5, yAxisID: 'y2' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (e, items) => {
+          if (items.length) {
+            const tipoName = tipoArr[items[0].index].name;
+            openModal(`Incidencias por Tipología: ${tipoName}`, filteredRows.filter(r => r.tipologia === tipoName));
+          }
+        },
+        plugins: { legend: { position: 'top' } },
+        scales: {
+          y: { title: { display: true, text: 'Volumen Base (€)' } },
+          y2: { position: 'right', grid: { display: false }, title: { display: true, text: '% Margen' }, ticks: { callback: v => v + '%' } }
+        }
+      }
+    });
+    charts.push(c);
+  }
+
+  if(document.getElementById('funnelChart')){
+    const fasesFunnel = [
+      { label: '1. Solicitadas', count: rowsProc.length, fn: r => true },
+      { label: '2. Enviadas a AVRA', count: enviados.length, fn: r => r.fEnv !== null },
+      { label: '3. Aprobadas por AVRA', count: aprobadas.length, fn: r => r.estado === 'Aprobado' },
+      { label: '4. Facturadas/Ejecutadas', count: facturadas.length, fn: r => r.esFacturada || r.obraLabel === 'Facturado' }
+    ];
+
+    const c = new Chart(document.getElementById('funnelChart'), {
+      type: 'bar',
+      data: {
+        labels: fasesFunnel.map(f=>f.label),
+        datasets: [{
+          label: 'Expedientes',
+          data: fasesFunnel.map(f=>f.count),
+          backgroundColor: ['#74c69d', '#457b9d', '#2d6a4f', '#6d597a'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (e, items) => {
+          if (items.length) {
+            const fase = fasesFunnel[items[0].index];
+            openModal(`Embudo de Tramitación: ${fase.label}`, filteredRows.filter(r => r.estado !== 'No procede' && fase.fn(r)));
+          }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+    charts.push(c);
+  }
+
+  if(allMeses.length && document.getElementById('riesgoChart')){
+    const c = new Chart(document.getElementById('riesgoChart'), {
+      type: 'line',
+      data: {
+        labels: allMeses.map(monthLabel),
+        datasets: [
+          { label: 'Base Facturada (€)', data: allMeses.map(m=>mesesFact[m]?Math.round(mesesFact[m].base):0), borderColor: '#2d6a4f', backgroundColor: '#2d6a4f15', fill: true, tension: 0.3 },
+          { label: 'Importe en Riesgo (>45d aprobados)', data: allMeses.map(m=>mesesRiesgo[m]?Math.round(mesesRiesgo[m].base):0), borderColor: '#e63946', backgroundColor: '#e6394615', fill: true, tension: 0.3 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (e, items) => {
+          if (items.length) {
+            const mKey = allMeses[items[0].index];
+            if (items[0].datasetIndex === 1) {
+              openModal(`Incidencias en Riesgo de Penalización (${monthLabel(mKey)})`, filteredRows.filter(r => (r.pen60==='vencida'||r.pen60==='aviso') && r.fApr && monthKey(r.fApr)===mKey));
+            } else {
+              openModal(`Incidencias Facturadas (${monthLabel(mKey)})`, filteredRows.filter(r => r.fFact && monthKey(r.fFact)===mKey));
+            }
+          }
+        },
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { ticks: { callback: v => '€' + Math.round(v/1000) + 'k' } } }
+      }
+    });
+    charts.push(c);
+  }
+
   const mkDonut=(id,legId,data)=>{
     if(!document.getElementById(id))return;
     const total=data.reduce((s,d)=>s+d.v,0)||1;
@@ -1072,38 +1317,11 @@ function renderDashboard(){
           {label:'Enviados a AVRA',data:allMeses.map(m=>mesesEnviado[m]?mesesEnviado[m].n:0),backgroundColor:'#457b9d',borderRadius:4,yAxisID:'y'},
           {label:'Aprobados',data:allMeses.map(m=>mesesApr[m]?mesesApr[m].n:0),backgroundColor:'#2d6a4f',borderRadius:4,yAxisID:'y'},
           {label:'Facturados',data:allMeses.map(m=>mesesFact[m]?mesesFact[m].n:0),backgroundColor:'#6d597a',borderRadius:4,yAxisID:'y'},
-          {label:'Base facturada (€)',data:allMeses.map(m=>mesesFact[m]?Math.round(mesesFact[m].base):0),type:'line',borderColor:'#e63946',backgroundColor:'#e6394615',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#e63946',yAxisID:'y2'},
         ]
       },
       options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:10,boxHeight:10}},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y2'?`${c.dataset.label}: ${euro(c.parsed.y)}`:`${c.dataset.label}: ${c.parsed.y}`}}},
-        scales:{
-          y:{grid:{color:'#e4ebe7'},ticks:{font:{size:11}},title:{display:true,text:'Nº incidencias',font:{size:10}}},
-          y2:{position:'right',grid:{display:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k',font:{size:11}},title:{display:true,text:'Importe (€)',font:{size:10}}},
-          x:{grid:{display:false},ticks:{font:{size:11}}}
-        }
-      }
-    });
-    charts.push(c);
-  }
-
-  if(tipoArr.length&&document.getElementById('tipoChart')){
-    const c=new Chart(document.getElementById('tipoChart'),{
-      type:'bar',
-      data:{
-        labels:tipoArr.map(t=>t.name||'Sin tipología'),
-        datasets:[
-          {label:'Nº incidencias',data:tipoArr.map(t=>t.count),backgroundColor:'#40916c',borderRadius:4,yAxisID:'y'},
-          {label:'Base SERVEO (€)',data:tipoArr.map(t=>Math.round(t.base)),type:'line',borderColor:'#f4a261',backgroundColor:'#f4a26115',fill:false,tension:.3,pointRadius:4,pointBackgroundColor:'#f4a261',yAxisID:'y2'},
-        ]
-      },
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:10,boxHeight:10}},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y2'?`${c.dataset.label}: ${euro(c.parsed.y)}`:`${c.dataset.label}: ${c.parsed.y}`}}},
-        scales:{
-          y:{grid:{color:'#e4ebe7'},ticks:{font:{size:11}},title:{display:true,text:'Nº incidencias',font:{size:10}}},
-          y2:{position:'right',grid:{display:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k',font:{size:11}}},
-          x:{grid:{display:false},ticks:{font:{size:11}}}
-        }
+        plugins:{legend:{position:'top'}},
+        scales:{ y:{grid:{color:'#e4ebe7'}} }
       }
     });
     charts.push(c);
@@ -1120,11 +1338,10 @@ function renderDashboard(){
         ]
       },
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:10,boxHeight:10}},tooltip:{callbacks:{label:c=>c.datasetIndex===1?`Base: ${euro(c.parsed.x)}`:`Incidencias: ${c.parsed.x}`}}},
+        plugins:{legend:{position:'top'}},
         scales:{
-          x:{grid:{color:'#e4ebe7'},ticks:{font:{size:11}},title:{display:true,text:'Nº incidencias',font:{size:10}}},
-          x2:{position:'top',grid:{display:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k',font:{size:11}},title:{display:true,text:'Base (€)',font:{size:10}}},
-          y:{grid:{display:false},ticks:{font:{size:11}}}
+          x:{grid:{color:'#e4ebe7'}},
+          x2:{position:'top',grid:{display:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k'}}
         }
       }
     });
@@ -1132,7 +1349,6 @@ function renderDashboard(){
   }
 }
 
-/* ─── CARGA ─── */
 async function loadData(){
   document.getElementById('statusText').textContent='Actualizando…';
   try{
@@ -1153,7 +1369,6 @@ async function loadData(){
   }
 }
 
-/* ─── NAV ─── */
 function switchTab(tab){
   currentTab=tab;
   document.getElementById('navDash').classList.toggle('active',tab==='dash');
@@ -1164,7 +1379,6 @@ function switchTab(tab){
   if(tab==='map')renderMap();
 }
 
-/* ── BOTTOM NAV EVENTOS ── */
 document.getElementById('bnDash').addEventListener('click',()=>{
   switchTab('dash');
   document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
