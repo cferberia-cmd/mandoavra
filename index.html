@@ -161,7 +161,7 @@ tbody tr:hover td{background:var(--green-bg);}
 .badge.warn{background:var(--warning-light);color:#c07a30;}
 .badge.danger{background:var(--danger-light);color:#e63946;}
 .badge.neutral{background:var(--bg);color:var(--text-sec);}
-.badge.info{background:var(--info-light);color:var(--info);}
+.badge.info{background:var(--info-light);color:#457b9d;}
 .exp-link{color:var(--green);font-weight:700;cursor:pointer;}
 .exp-link:hover{text-decoration:underline;}
 
@@ -382,7 +382,6 @@ tbody tr:hover td{background:var(--green-bg);}
 
     function verificarAcceso() {
         const urlParams = new URLSearchParams(window.location.search);
-        // Soporta tanto 't' (formato compacto corto) como 'token' (formato anterior)
         let token = urlParams.get('t') || urlParams.get('token');
 
         if (!token) {
@@ -391,13 +390,11 @@ tbody tr:hover td{background:var(--green-bg);}
         }
 
         try {
-            // Ajustar relleno Base64 si falta
             while (token.length % 4) token += '=';
             
             const decoded = JSON.parse(atob(token));
             const ahora = Math.floor(Date.now() / 1000);
 
-            // Determinar estructura (Array para enlace corto, Objeto para enlace estándar)
             const user = Array.isArray(decoded) ? decoded[0] : decoded.user;
             const exp = Array.isArray(decoded) ? decoded[1] : decoded.exp;
             const sig = Array.isArray(decoded) ? decoded[2] : decoded.sig;
@@ -562,7 +559,14 @@ function processRows(rows){
     const obraLabel=normObra(KEYS.obra?r[KEYS.obra]:'',KEYS.est?r[KEYS.est]:'');
     const base=Math.max(0,parseNum(KEYS.base?r[KEYS.base]:0));
     const baseSub=Math.max(0,parseNum(KEYS.baseSub?r[KEYS.baseSub]:0));
-    const total=parseNum(KEYS.total?r[KEYS.total]:0);
+    
+    // PROTECCIÓN CONTRA TOTALES ERRÓNEOS POR FORMATOS DE EXCEL
+    let totalRaw = parseNum(KEYS.total ? r[KEYS.total] : 0);
+    if (base > 0 && totalRaw > base * 3) {
+        totalRaw = base * 1.21; // Corrección automática basada en el 21% de IVA
+    }
+    const total = totalRaw;
+
     const tipologia=KEYS.tipologia?String(r[KEYS.tipologia]||'').trim():'';
     const estServeoRaw=KEYS.est?String(r[KEYS.est]||''):'';
     const esAprobadoServeo=estServeoRaw.toUpperCase().includes('PRESUPUESTO APROBADO');
