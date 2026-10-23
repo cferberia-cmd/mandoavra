@@ -376,14 +376,14 @@ tbody tr:hover td{background:var(--green-bg);}
 </div>
 
 <script>
-// --- SISTEMA DE VALIDACIÓN DE ACCESO TEMPORAL ---
+// --- SISTEMA DE VALIDACIÓN DE ACCESO TEMPORAL (COMPACTO) ---
 (function() {
-    // CLAVE SECRETA: Debe coincidir exactamente con la de tu generador de enlaces
     const CLAVE_SECRETA = "AVRA_Jaen_Master_Key_2026_Secure_Guard"; 
 
     function verificarAcceso() {
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        // Soporta tanto 't' (formato compacto corto) como 'token' (formato anterior)
+        let token = urlParams.get('t') || urlParams.get('token');
 
         if (!token) {
             bloquearPantalla("Acceso no autorizado. Se requiere un enlace de invitación válido.");
@@ -391,19 +391,31 @@ tbody tr:hover td{background:var(--green-bg);}
         }
 
         try {
-            const decodedData = JSON.parse(atob(token));
+            // Ajustar relleno Base64 si falta
+            while (token.length % 4) token += '=';
+            
+            const decoded = JSON.parse(atob(token));
             const ahora = Math.floor(Date.now() / 1000);
 
-            if (ahora > decodedData.exp) {
+            // Determinar estructura (Array para enlace corto, Objeto para enlace estándar)
+            const user = Array.isArray(decoded) ? decoded[0] : decoded.user;
+            const exp = Array.isArray(decoded) ? decoded[1] : decoded.exp;
+            const sig = Array.isArray(decoded) ? decoded[2] : decoded.sig;
+
+            if (ahora > exp) {
                 bloquearPantalla("Este enlace temporal ha caducado. Solicite un nuevo acceso.");
                 return;
             }
 
-            const firmaEsperada = btoa(decodedData.user + "_" + decodedData.exp + "_" + CLAVE_SECRETA);
-            if (decodedData.sig !== firmaEsperada) {
+            const firmaEsperada = btoa(user + "_" + exp + "_" + CLAVE_SECRETA).substring(0, 10);
+            const firmaAntigua = btoa(user + "_" + exp + "_" + CLAVE_SECRETA);
+
+            if (sig !== firmaEsperada && sig !== firmaAntigua) {
                 bloquearPantalla("Enlace de acceso inválido o manipulado.");
                 return;
             }
+
+            console.log("Acceso concedido para: " + user);
 
         } catch (e) {
             bloquearPantalla("Error en el formato del token de acceso.");
