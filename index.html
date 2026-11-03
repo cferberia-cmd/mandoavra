@@ -398,6 +398,67 @@ tbody tr:hover td{background:var(--green-bg);}
 </div>
 
 <script>
+// --- SISTEMA DE VALIDACIÓN DE ACCESO TEMPORAL (COMPACTO) ---
+(function() {
+    const CLAVE_SECRETA = "AVRA_Jaen_Master_Key_2026_Secure_Guard"; 
+
+    function verificarAcceso() {
+        const urlParams = new URLSearchParams(window.location.search);
+        let token = urlParams.get('t') || urlParams.get('token');
+
+        if (!token) {
+            bloquearPantalla("Acceso no autorizado. Se requiere un enlace de invitación válido.");
+            return;
+        }
+
+        try {
+            while (token.length % 4) token += '=';
+            
+            const decoded = JSON.parse(atob(token));
+            const ahora = Math.floor(Date.now() / 1000);
+
+            const user = Array.isArray(decoded) ? decoded[0] : decoded.user;
+            const exp = Array.isArray(decoded) ? decoded[1] : decoded.exp;
+            const sig = Array.isArray(decoded) ? decoded[2] : decoded.sig;
+
+            if (ahora > exp) {
+                bloquearPantalla("Este enlace temporal ha caducado. Solicite un nuevo acceso.");
+                return;
+            }
+
+            const firmaEsperada = btoa(user + "_" + exp + "_" + CLAVE_SECRETA).substring(0, 10);
+            const firmaAntigua = btoa(user + "_" + exp + "_" + CLAVE_SECRETA);
+
+            if (sig !== firmaEsperada && sig !== firmaAntigua) {
+                bloquearPantalla("Enlace de acceso inválido o manipulado.");
+                return;
+            }
+
+            console.log("Acceso concedido para: " + user);
+
+        } catch (e) {
+            bloquearPantalla("Error en el formato del token de acceso.");
+        }
+    }
+
+    function bloquearPantalla(mensaje) {
+        document.addEventListener("DOMContentLoaded", () => {
+            document.body.innerHTML = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f4f6f5;font-family:sans-serif;color:#111827;text-align:center;padding:20px;">
+                    <div style="background:#fff;padding:40px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.1);max-width:400px;width:100%;border:1.5px solid #e4ebe7;">
+                        <div style="font-size:40px;margin-bottom:15px;">🔒</div>
+                        <h2 style="font-size:18px;color:#e63946;margin-bottom:10px;">Acceso Restringido</h2>
+                        <p style="font-size:13px;color:#6b7a74;line-height:1.5;margin-bottom:20px;">${mensaje}</p>
+                        <div style="font-size:11px;color:#a0aea8;">Gestión de Incidencias · AVRA Jaén</div>
+                    </div>
+                </div>
+            `;
+        });
+        throw new Error("Acceso denegado");
+    }
+
+    verificarAcceso();
+})();
 
 // --- LÓGICA DEL DASHBOARD ---
 const GIST_RAW="https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
@@ -1011,7 +1072,7 @@ function renderDashboard(){
   const rows=filteredRows;
   if(!rows.length){document.getElementById('content').innerHTML='<div class="placeholder"><strong>Sin resultados</strong>Prueba a cambiar los filtros</div>';return;}
 
-  const estC={},obraC={},munC={},munBase={},tipoC={},tipoBase={},tipoMargen={};
+  const munC={},munBase={},tipoC={},tipoBase={},tipoMargen={};
   const provCount={},provDiasSub={},provBase={};
   let sBase=0,sBaseSub=0,sTotal=0,nPrior=0;
   const mesesSolicitud={},mesesEnviado={},mesesApr={},mesesFact={},mesesRiesgo={};
@@ -1032,11 +1093,36 @@ function renderDashboard(){
   const importePenalBase=pen60Vencidas.reduce((s,r)=>s+r.base,0);
   const importePenal10=importePenalBase*0.1;
 
+  const tipologiaData = {};
+  const aprobacionMesData = {};
+
+  // Estructura para el gráfico cruzado Municipio x Tipología
+  const munTipologiaMap = {};
+  const setTipologias = new Set();
+
   rows.forEach(r=>{
-    estC[r.estado]=(estC[r.estado]||0)+1;
-    if(r.obraLabel)obraC[r.obraLabel]=(obraC[r.obraLabel]||0)+1;
+    const mun = r.municipio || 'Sin municipio';
+    const tip = r.tipologia || 'Sin tipología';
+    setTipologias.add(tip);
+
+    if(!munTipologiaMap[mun]) munTipologiaMap[mun] = {};
+    if(!munTipologiaMap[mun][tip]) munTipologiaMap[mun][tip] = { count: 0, base: 0 };
+    munTipologiaMap[mun][tip].count++;
+    munTipologiaMap[mun][tip].base += r.base;
+
     if(r.municipio){munC[r.municipio]=(munC[r.municipio]||0)+1;munBase[r.municipio]=(munBase[r.municipio]||0)+r.base;}
     
+    if(!tipologiaData[tip]) tipologiaData[tip] = { count: 0, base: 0 };
+    tipologiaData[tip].count++;
+    tipologiaData[tip].base += r.base;
+
+    if(r.fApr) {
+      const mKey = monthKey(r.fApr);
+      if(!aprobacionMesData[mKey]) aprobacionMesData[mKey] = { count: 0, base: 0 };
+      aprobacionMesData[mKey].count++;
+      aprobacionMesData[mKey].base += r.base;
+    }
+
     if(r.tipologia){
       tipoC[r.tipologia]=(tipoC[r.tipologia]||0)+1;
       tipoBase[r.tipologia]=(tipoBase[r.tipologia]||0)+r.base;
@@ -1072,7 +1158,6 @@ function renderDashboard(){
     if(r.pen60==='vencida'||r.pen60==='aviso') addMes(mesesRiesgo,r.fApr,1);
   });
 
-  const noProcede=rows.filter(r=>r.estado==='No procede'||r.tipologia.toUpperCase().includes('NO PROCEDE'));
   const rowsProc=rows.filter(r=>r.estado!=='No procede'&&!r.tipologia.toUpperCase().includes('NO PROCEDE'));
 
   const enviados=rowsProc.filter(r=>r.fEnv!==null);
@@ -1087,6 +1172,9 @@ function renderDashboard(){
     const avgM=arrM.reduce((a,b)=>a+b,0)/arrM.length;
     return {name:n,count:v,base:tipoBase[n]||0,margenAvg:avgM};
   }).sort((a,b)=>b.base-a.base);
+
+  const tipologiaArraySorted = Object.entries(tipologiaData).map(([name, data])=>({name, ...data})).sort((a,b)=>b.base - a.base);
+  const aprobacionMesArraySorted = Object.entries(aprobacionMesData).map(([mKey, data])=>({mKey, label: monthLabel(mKey), ...data})).sort((a,b)=>a.mKey.localeCompare(b.mKey));
 
   const provArr=Object.entries(provCount).map(([n,v])=>{
     const arrD=provDiasSub[n]||[0];
@@ -1280,14 +1368,55 @@ function renderDashboard(){
 
   <div class="charts-grid">
     <div class="card">
-      <div class="card-header"><span class="card-title">Estado de incidencias</span><span class="card-subtitle">${rows.length} total · ${euro(sBase)} base</span></div>
-      <div class="chart-wrap h200"><canvas id="estChart"></canvas></div>
-      <div class="donut-legend" id="estLegend"></div>
+      <div class="card-header"><span class="card-title">Análisis de incidencias por Tipología</span><span class="card-subtitle">${tipologiaArraySorted.length} tipologías · ${euro(sBase)} base</span></div>
+      <div style="max-height:260px;overflow-y:auto;margin-top:8px;">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipología</th>
+                <th style="text-align:center">Nº Incidencias</th>
+                <th style="text-align:right">Importe Base Acumulado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tipologiaArraySorted.map(t => `
+                <tr style="cursor:pointer" onclick="openModal('Tipología: ${t.name}', filteredRows.filter(r => (r.tipologia || 'Sin tipología') === '${t.name}'))">
+                  <td><strong>${t.name}</strong></td>
+                  <td style="text-align:center"><span class="badge info">${t.count}</span></td>
+                  <td style="text-align:right"><strong>${euro2(t.base)}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
+
     <div class="card">
-      <div class="card-header"><span class="card-title">Estado de obra</span></div>
-      <div class="chart-wrap h200"><canvas id="obraChart"></canvas></div>
-      <div class="donut-legend" id="obraLegend"></div>
+      <div class="card-header"><span class="card-title">Análisis por fecha de aprobado por AVRA</span><span class="card-subtitle">${aprobacionMesArraySorted.length} períodos mensuales</span></div>
+      <div style="max-height:260px;overflow-y:auto;margin-top:8px;">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Mes / Período (Aprobado AVRA)</th>
+                <th style="text-align:center">Nº Incidencias</th>
+                <th style="text-align:right">Importe Base Acumulado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${aprobacionMesArraySorted.map(a => `
+                <tr style="cursor:pointer" onclick="openModal('Aprobados AVRA en ${a.label}', filteredRows.filter(r => r.fApr && monthKey(r.fApr) === '${a.mKey}'))">
+                  <td><strong>${a.label}</strong></td>
+                  <td style="text-align:center"><span class="badge ok">${a.count}</span></td>
+                  <td style="text-align:right"><strong>${euro2(a.base)}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1300,8 +1429,8 @@ function renderDashboard(){
   </div>`:''}
 
   ${munArr.length?`<div class="card">
-    <div class="card-header"><span class="card-title">Incidencias por municipio</span><span class="card-subtitle">Número e importe base</span></div>
-    <div class="chart-wrap" style="height:${Math.max(200,munArr.length*36)}px"><canvas id="munChart"></canvas></div>
+    <div class="card-header"><span class="card-title">Incidencias por municipio y tipología</span><span class="card-subtitle">Distribución cruzada de tipologías por municipio</span></div>
+    <div class="chart-wrap" style="height:${Math.max(260,munArr.length*45)}px"><canvas id="munChart"></canvas></div>
   </div>`:''}
   `;
 
@@ -1472,26 +1601,6 @@ function renderDashboard(){
     charts.push(c);
   }
 
-  const mkDonut=(id,legId,data)=>{
-    if(!document.getElementById(id))return;
-    const total=data.reduce((s,d)=>s+d.v,0)||1;
-    const c=new Chart(document.getElementById(id),{type:'doughnut',data:{labels:data.map(d=>d.l),datasets:[{data:data.map(d=>d.v),backgroundColor:data.map(d=>d.c),borderWidth:0,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/total*100)}%)`}}}}});
-    charts.push(c);
-    document.getElementById(legId).innerHTML=data.filter(d=>d.v>0).map(d=>`<div class="dl-item"><div class="dl-left"><span class="dl-dot" style="background:${d.c}"></span>${d.l}</div><div class="dl-pct">${d.v} · ${Math.round(d.v/total*100)}%</div></div>`).join('');
-  };
-  mkDonut('estChart','estLegend',[
-    {l:'Pdte. presupuesto',v:estC['Pdte. presupuesto']||0,c:'#f4a261'},
-    {l:'Aprobado',v:estC['Aprobado']||0,c:'#2d6a4f'},
-    {l:'Pdte. aprobación',v:estC['Pdte. aprobación']||0,c:'#457b9d'},
-    {l:'Facturado',v:estC['Facturado']||0,c:'#6d597a'},
-    {l:'No procede',v:estC['No procede']||0,c:'#e63946'},
-  ]);
-  mkDonut('obraChart','obraLegend',[
-    {l:'Ejecutado',v:obraC['Ejecutado']||0,c:'#2d6a4f'},
-    {l:'En ejecución',v:obraC['En ejecución']||0,c:'#40916c'},
-    {l:'Facturado',v:obraC['Facturado']||0,c:'#6d597a'},
-  ]);
-
   if(allMeses.length&&document.getElementById('fasesChart')){
     const c=new Chart(document.getElementById('fasesChart'),{
       type:'bar',
@@ -1513,20 +1622,38 @@ function renderDashboard(){
   }
 
   if(munArr.length&&document.getElementById('munChart')){
+    const munLabels = munArr.map(m=>m.name);
+    const tipologiasArr = [...setTipologias];
+    const palette = ['#2d6a4f', '#40916c', '#74c69d', '#457b9d', '#6d597a', '#f4a261', '#e63946', '#264653', '#2a9d8f', '#e9c46a'];
+
+    const datasetsMun = tipologiasArr.map((tip, idx) => ({
+      label: tip,
+      data: munLabels.map(mun => (munTipologiaMap[mun] && munTipologiaMap[mun][tip]) ? munTipologiaMap[mun][tip].count : 0),
+      backgroundColor: palette[idx % palette.length],
+      borderRadius: 4
+    }));
+
     const c=new Chart(document.getElementById('munChart'),{
       type:'bar',
       data:{
-        labels:munArr.map(m=>m.name),
-        datasets:[
-          {label:'Nº incidencias',data:munArr.map(m=>m.count),backgroundColor:'#40916c',borderRadius:4,xAxisID:'x'},
-          {label:'Base SERVEO (€)',data:munArr.map(m=>Math.round(m.base)),backgroundColor:'#74c69d99',borderRadius:4,xAxisID:'x2'},
-        ]
+        labels: munLabels,
+        datasets: datasetsMun
       },
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
+        onClick:(e, items)=>{
+          if(items.length){
+            const munName = munLabels[items[0].index];
+            const tipName = tipologiasArr[items[0].datasetIndex];
+            openModal(`Municipio: ${munName} | Tipología: ${tipName}`, filteredRows.filter(r => r.municipio === munName && (r.tipologia || 'Sin tipología') === tipName));
+          }
+        },
         plugins:{legend:{position:'top'}},
         scales:{
-          x:{grid:{color:'#e4ebe7'}},
-          x2:{position:'top',grid:{display:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k'}}
+          x:{ stacked: true, grid:{color:'#e4ebe7'}, title: { display: true, text: 'Número de incidencias' } },
+          y:{ stacked: true, grid:{display:false} }
         }
       }
     });
