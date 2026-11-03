@@ -187,7 +187,7 @@ tbody tr:hover td{background:var(--green-bg);}
 .map-inc-mun{font-size:11px;color:var(--text-sec);margin-top:1px;}
 #map{border-radius:var(--r);border:1.5px solid var(--border);box-shadow:var(--shadow);position:relative;}
 
-/* MAP DRAWER LATERAL FLOTANTE (Mejora 4) */
+/* MAP DRAWER LATERAL FLOTANTE */
 #mapDrawer{position:absolute;top:0;right:0;bottom:0;width:380px;background:var(--surface);box-shadow:-8px 0 24px rgba(0,0,0,.15);z-index:1000;border-left:1.5px solid var(--border);border-radius:0 var(--r) var(--r) 0;display:flex;flex-direction:column;transform:translateX(105%);transition:transform .25s ease-in-out;}
 #mapDrawer.open{transform:translateX(0);}
 .map-drawer-hdr{padding:16px 20px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--green-bg);}
@@ -296,7 +296,6 @@ tbody tr:hover td{background:var(--green-bg);}
       <div id="mapTab">
         <div class="map-shell">
           <div class="map-sidebar">
-            <!-- NUEVO: Filtro geográfico por comarca (Mejora 2) -->
             <div>
               <div class="map-sidebar-title">Comarca / Zona</div>
               <select id="mapFiltroComarca" style="width:100%;border:1.5px solid var(--border);border-radius:20px;padding:6px 12px;font-size:12px;background:var(--bg);color:var(--text);margin-bottom:10px;">
@@ -312,7 +311,6 @@ tbody tr:hover td{background:var(--green-bg);}
               </select>
             </div>
             <div><div class="map-sidebar-title">Estado · Filtrar</div><div id="mapLegend" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;"></div></div>
-            <!-- NUEVO: Toggle para Mapa de Calor (Mejora 1) -->
             <div style="background:var(--green-bg);padding:8px 10px;border-radius:8px;border:1px solid var(--green-xlight);display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
               <span style="font-size:11px;font-weight:700;color:var(--green)">🔥 Mapa de Calor</span>
               <input type="checkbox" id="toggleHeatmap" style="accent-color:var(--green);cursor:pointer;width:15px;height:15px;">
@@ -325,7 +323,6 @@ tbody tr:hover td{background:var(--green-bg);}
           </div>
           <div style="position:relative;flex:1;display:flex;">
             <div id="map" style="width:100%;height:100%;"></div>
-            <!-- NUEVO: Panel Lateral Flotante / Drawer (Mejora 4) -->
             <div id="mapDrawer">
               <div class="map-drawer-hdr">
                 <div id="drawerExpTitle" style="font-size:14px;font-weight:700;color:var(--green)">Detalle Expediente</div>
@@ -415,28 +412,26 @@ tbody tr:hover td{background:var(--green-bg);}
 
 <script>
 
-
 // --- LÓGICA DEL DASHBOARD ---
 const GIST_RAW="https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
 const REFRESH_MS=5*60*1000;
-const GEO_CACHE_KEY='avra_geo_v4';
+const GEO_CACHE_KEY='avra_geo_v5';
 let charts=[],rawRows=[],filteredRows=[],modalRows=[],modalTitleText='';
 let KEYS={},leafletMap=null,markers=[],currentTab='dash';
 let geoCache={};try{geoCache=JSON.parse(localStorage.getItem(GEO_CACHE_KEY)||'{}');}catch(e){geoCache={};}
 let munMarkers={},dirMarkers={};
-let heatLayer=null; // Capa de Mapa de Calor
+let heatLayer=null;
 let activeEstados=new Set(['Pdte. presupuesto','Pdte. aprobación','Aprobado','Facturado','No procede','Sin estado']);
 
-// Mapeo de Comarcas de Jaén
 const COMARCAS_JAEN = {
-  metropolitana: ['JAÉN', 'TORREDELCAMPO', 'TORREDONJIMENO', 'MENGÍBAR', 'LA GUARDIA DE JAÉN', 'VILLARRODRIGO', 'FUENSANTA DE MARTOOS', 'MARTOOS', 'VILLARRODRIGO'],
+  metropolitana: ['JAÉN', 'TORREDELCAMPO', 'TORREDONJIMENO', 'MENGÍBAR', 'LA GUARDIA DE JAÉN', 'VILLARRODRIGO', 'FUENSANTA DE MARTOOS', 'MARTOOS'],
   loma: ['ÚBEDA', 'BAEZA', 'CANENA', 'JÓDAR', 'LINARES', 'VILCHES', 'SABIOTE', 'TORREPEROGIL'],
-  magina: ['JÓDAR', 'BÉEZ', 'CAMPILLO DE ARENAS', 'CUDENA', 'HUNCAR', 'HUELMA', 'TORRES', 'PAGAL', 'CAMBIL', 'JIMENA'],
-  segura: ['SEGURA DE LA SIERRA', 'ORCERA', 'BEAS DE SEGURA', 'ARROYO DEL OJANCO', 'LA PUERTA DE SEGURA', 'SIERRA DE SEGURA', 'SANTIAGO-PONTONES'],
+  magina: ['JÓDAR', 'BÉEZ', 'CAMPILLO DE ARENAS', 'HUELMA', 'TORRES', 'CAMBIL', 'JIMENA'],
+  segura: ['SEGURA DE LA SIERRA', 'ORCERA', 'BEAS DE SEGURA', 'ARROYO DEL OJANCO', 'LA PUERTA DE SEGURA', 'SANTIAGO-PONTONES'],
   sierrasur: ['ALCALÁ LA REAL', 'ALCAUDETE', 'CASTILLO DE LOCUBÍN', 'FRAILES'],
-  condado: ['VILLACARRILLO', 'NATIVIDAD', 'ARJONA', 'ARJONILLA', 'NAVAS DE SAN JUAN', 'SANTISTEBAN DEL PUERTO', 'CHICLANA DE SEGURA'],
+  condado: ['VILLACARRILLO', 'ARJONA', 'ARJONILLA', 'NAVAS DE SAN JUAN', 'SANTISTEBAN DEL PUERTO', 'CHICLANA DE SEGURA'],
   cazorla: ['CAZORLA', 'LA IRUELA', 'QUESADA', 'POZO ALCÓN', 'HINOJARES'],
-  morena: ['ANDÚJAR', 'BAILÉN', 'LINARES', 'MARMOLEJO', 'VILLANUEVA DE LA REINA', 'LLANO DEL REY']
+  morena: ['ANDÚJAR', 'BAILÉN', 'MARMOLEJO', 'VILLANUEVA DE LA REINA']
 };
 
 function perteneceComarca(mun, comarcaKey){
@@ -825,7 +820,6 @@ function openFicha(row){
 function penalStr(r){const v=KEYS.penal?r[KEYS.penal]:'';return v?String(v).trim():'—';}
 window._openFichaExp=exp=>{const row=rawRows.find(r=>r.exp===exp);if(row)openFicha(row);};
 
-// NUEVO: Abrir Panel Lateral Drawer en el Mapa (Mejora 4)
 function openMapDrawer(row){
   const r=row.raw;
   const field=(l,v)=>`<div class="ficha-field" style="margin-bottom:10px;"><div class="fl" style="font-size:10px;font-weight:700;color:var(--text-ter);text-transform:uppercase;">${l}</div><div class="fv" style="font-size:13px;font-weight:500;">${v||'—'}</div></div>`;
@@ -882,8 +876,60 @@ function descargarPDF(){
 
 const munGeoCache={};
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
-async function geocodeMun(mun,intentos=3){if(munGeoCache[mun])return munGeoCache[mun];for(let i=0;i<intentos;i++){try{const q=encodeURIComponent(`${mun}, Jaén, España`);const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});if(!res.ok){await sleep(2000*(i+1));continue;}const d=await res.json();if(d&&d[0]){const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};munGeoCache[mun]=c;return c;}}catch(e){await sleep(2000*(i+1));}}return null;}
-async function geocodeDir(row){if(geoCache[row.geoKey])return geoCache[row.geoKey];try{const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(row.fullAddr)}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});const d=await res.json();if(d&&d[0]){const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};geoCache[row.geoKey]=c;localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(geoCache));return c;}}catch(e){}return null;}
+
+async function geocodeMun(mun,intentos=3){
+  if(munGeoCache[mun])return munGeoCache[mun];
+  for(let i=0;i<intentos;i++){
+    try{
+      const q=encodeURIComponent(`${mun}, Jaén, España`);
+      const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
+      if(!res.ok){await sleep(1500*(i+1));continue;}
+      const d=await res.json();
+      if(d&&d[0]){
+        const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
+        munGeoCache[mun]=c;
+        return c;
+      }
+    }catch(e){await sleep(1500*(i+1));}
+  }
+  return null;
+}
+
+// CORRECCIÓN ROBUSTA DE GEOCODIFICACIÓN CON FALLBACK AUTOMÁTICO AL MUNICIPIO
+async function geocodeDir(row){
+  if(geoCache[row.geoKey])return geoCache[row.geoKey];
+  
+  // 1. Intentar dirección exacta si es válida
+  if(row.fullAddr && row.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length > 5){
+    try{
+      const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(row.fullAddr)}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
+      const d=await res.json();
+      if(d&&d[0]){
+        const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
+        geoCache[row.geoKey]=c;
+        localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(geoCache));
+        return c;
+      }
+    }catch(e){}
+  }
+
+  // 2. FALLBACK INTELIGENTE: Si falla la dirección exacta, usar el centroide del municipio con un ligero offset
+  if(row.municipio){
+    let munCoords = await geocodeMun(row.municipio);
+    if(munCoords){
+      // Aplicar pequeño desplazamiento aleatorio para evitar solapamientos exactos de pines
+      const offsetLat = (Math.random() - 0.5) * 0.008;
+      const offsetLng = (Math.random() - 0.5) * 0.008;
+      const c = {lat: munCoords.lat + offsetLat, lng: munCoords.lng + offsetLng};
+      geoCache[row.geoKey] = c;
+      localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(geoCache));
+      return c;
+    }
+  }
+
+  return null;
+}
+
 function mkPin(color,size=26){const h=Math.round(size*1.36);return L.divIcon({html:`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${h}" viewBox="0 0 28 38"><path d="M14 0C6.27 0 0 6.27 0 14c0 9.63 14 24 14 24S28 23.63 28 14C28 6.27 21.73 0 14 0z" fill="${color}" stroke="white" stroke-width="2"/><circle cx="14" cy="14" r="6" fill="white" opacity=".9"/></svg>`,iconSize:[size,h],iconAnchor:[size/2,h],popupAnchor:[0,-h],className:''});}
 function mkCluster(color,n){return L.divIcon({html:`<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="${color}" stroke="white" stroke-width="2.5" opacity=".92"/><text x="22" y="27" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="${n>9?12:14}" font-weight="800" fill="white">${n}</text></svg>`,iconSize:[44,44],iconAnchor:[22,22],popupAnchor:[0,-22],className:''});}
 
@@ -917,12 +963,10 @@ function applyMapFilter(){
     const icon=munRows.length===1?mkPin(colorForEstado(dom)):mkCluster(colorForEstado(dom),munRows.length);
     const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);
     
-    // Al hacer clic abre el drawer lateral (Mejora 4)
     m.on('click', ()=> openMapDrawer(munRows[0]));
     munMarkers[mun]=m;
   });
 
-  // Gestionar Capa de Calor (Mejora 1)
   if(heatLayer) { leafletMap.removeLayer(heatLayer); heatLayer = null; }
   if(document.getElementById('toggleHeatmap').checked && heatPoints.length > 0){
     heatLayer = L.heatLayer(heatPoints, {radius: 25, blur: 15, maxZoom: 14, gradient: {0.4: '#74c69d', 0.65: '#f4a261', 1.0: '#e63946'}}).addTo(leafletMap);
@@ -934,7 +978,7 @@ function applyMapFilter(){
 }
 
 window.selectAllEstados=val=>{activeEstados=new Set(val?['Pdte. presupuesto','Pdte. aprobación','Aprobado','Facturado','No procede','Sin estado']:[]);document.querySelectorAll('#mapLegend input[type=checkbox]').forEach(cb=>{cb.checked=val;});applyMapFilter();};
-function renderNoUbicadas(sinDir,noGeo){const todas=[...new Map([...sinDir,...noGeo].map(r=>[r.exp,r])).values()];const el=document.getElementById('mapNoUbicadas');if(!el)return;if(!todas.length){el.style.display='none';return;}el.style.display='block';el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"><div style="display:flex;align-items:center;gap:6px"><span>⚠️</span><span style="font-size:12px;font-weight:700;color:var(--warning)">Sin ubicar</span><span style="background:var(--warning-light);color:#c07a30;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">${todas.length}</span></div><span style="font-size:11px;color:var(--text-ter)">▼</span></div><div style="display:none">${todas.map(r=>`<div onclick="window._openFichaExp('${r.exp}')" style="padding:7px 8px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#fff;border:1px solid #fde68a"><div style="font-size:12px;font-weight:700;color:var(--green)">${r.exp}</div><div style="font-size:11px;color:var(--text-sec)">${r.municipio}</div><div style="font-size:10px;color:#c07a30;margin-top:2px;font-weight:600">${!r.fullAddr||r.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length<=5?'⚠ Sin dirección':'⚠ Dirección no encontrada'}</div></div>`).join('')}</div>`;}
+function renderNoUbicadas(sinDir,noGeo){const todas=[...new Map([...sinDir,...noGeo].map(r=>[r.exp,r])).values()];const el=document.getElementById('mapNoUbicadas');if(!el)return;if(!todas.length){el.style.display='none';return;}el.style.display='block';el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"><div style="display:flex;align-items:center;gap:6px"><span>⚠️</span><span style="font-size:12px;font-weight:700;color:var(--warning)">Sin ubicar</span><span style="background:var(--warning-light);color:#c07a30;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">${todas.length}</span></div><span style="font-size:11px;color:var(--text-ter)">▼</span></div><div style="display:none">${todas.map(r=>`<div onclick="window._openFichaExp('${r.exp}')" style="padding:7px 8px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#fff;border:1px solid #fde68a"><div style="font-size:12px;font-weight:700;color:var(--green)">${r.exp}</div><div style="font-size:11px;color:var(--text-sec)">${r.municipio}</div><div style="font-size:10px;color:#c07a30;margin-top:2px;font-weight:600">Revisar ubicación</div></div>`).join('')}</div>`;}
 
 async function renderMap(){
   const comarcaSel = document.getElementById('mapFiltroComarca').value;
@@ -945,24 +989,61 @@ async function renderMap(){
   document.getElementById('mapStats').innerHTML=`<div class="map-stat"><div class="map-stat-val">${rows.length}</div><div class="map-stat-label">Total</div></div><div class="map-stat"><div class="map-stat-val" style="color:var(--danger)">${rows.filter(r=>r.pen60==='vencida').length}</div><div class="map-stat-label">Vencidas</div></div><div class="map-stat"><div class="map-stat-val" style="color:var(--green)">${rows.filter(r=>r.estado==='Aprobado').length}</div><div class="map-stat-label">Aprobadas</div></div><div class="map-stat"><div class="map-stat-val" style="color:var(--warning)">${rows.filter(r=>r.estado==='Pdte. presupuesto').length}</div><div class="map-stat-label">Pdte.ppto.</div></div>`;
   document.getElementById('navMapBadge').textContent=rows.length;
   document.getElementById('mapIncList').innerHTML=rows.map(r=>`<div class="map-inc-item" data-exp="${r.exp}"><div class="map-inc-exp">${r.exp}</div><div class="map-inc-mun">${r.municipio}</div><div style="margin-top:4px"><span class="badge" style="background:${colorForEstado(r.estado)}18;color:${colorForEstado(r.estado)}">${r.estado}</span></div></div>`).join('');
-  const sinDir=[],byMun={};rows.forEach(r=>{if(!r.fullAddr||r.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length<=5)sinDir.push(r);if(!byMun[r.municipio])byMun[r.municipio]=[];byMun[r.municipio].push(r);});
+  
+  const sinDir=[],byMun={};rows.forEach(r=>{if(!r.municipio)sinDir.push(r);if(!byMun[r.municipio])byMun[r.municipio]=[];byMun[r.municipio].push(r);});
   const munList=Object.keys(byMun);
   const progEl=document.getElementById('geoProgress'),progText=document.getElementById('geoText'),progBar=document.getElementById('geoBar');
   progEl.style.display='block';const munBounds=[];
   const heatPoints=[];
 
-  for(let i=0;i<munList.length;i++){const mun=munList[i],munRows=byMun[mun];if(!munGeoCache[mun])await sleep(1100);const coords=await geocodeMun(mun);if(!coords)continue;munBounds.push([coords.lat,coords.lng]);heatPoints.push([coords.lat,coords.lng,munRows.length]);const ec={};munRows.forEach(r=>{ec[r.estado]=(ec[r.estado]||0)+1;});const dom=Object.entries(ec).sort((a,b)=>b[1]-a[1])[0][0];const vRows=munRows.filter(r=>activeEstados.has(r.estado));if(!vRows.length)continue;const icon=vRows.length===1?mkPin(colorForEstado(dom)):mkCluster(colorForEstado(dom),vRows.length);const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);m.on('click',()=>openMapDrawer(vRows[0]));munMarkers[mun]=m;markers.push(m);progText.textContent=`Municipios: ${i+1}/${munList.length}`;progBar.style.width=Math.round((i+1)/munList.length*100)+'%';}
+  for(let i=0;i<munList.length;i++){
+    const mun=munList[i],munRows=byMun[mun];
+    if(!munGeoCache[mun])await sleep(800);
+    const coords=await geocodeMun(mun);
+    if(!coords)continue;
+    munBounds.push([coords.lat,coords.lng]);
+    heatPoints.push([coords.lat,coords.lng,munRows.length]);
+    const ec={};munRows.forEach(r=>{ec[r.estado]=(ec[r.estado]||0)+1;});
+    const dom=Object.entries(ec).sort((a,b)=>b[1]-a[1])[0][0];
+    const vRows=munRows.filter(r=>activeEstados.has(r.estado));
+    if(!vRows.length)continue;
+    const icon=vRows.length===1?mkPin(colorForEstado(dom)):mkCluster(colorForEstado(dom),vRows.length);
+    const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);
+    m.on('click',()=>openMapDrawer(vRows[0]));
+    munMarkers[mun]=m;markers.push(m);
+    progText.textContent=`Municipios: ${i+1}/${munList.length}`;
+    progBar.style.width=Math.round((i+1)/munList.length*100)+'%';
+  }
 
-  // Renderizar Mapa de Calor si está activo (Mejora 1)
   if(document.getElementById('toggleHeatmap').checked && heatPoints.length>0){
     heatLayer = L.heatLayer(heatPoints, {radius: 25, blur: 15, maxZoom: 14, gradient: {0.4: '#74c69d', 0.65: '#f4a261', 1.0: '#e63946'}}).addTo(leafletMap);
   }
 
   if(munBounds.length)leafletMap.fitBounds(munBounds,{padding:[40,40],maxZoom:12});setTimeout(()=>leafletMap.invalidateSize(),100);
-  const noGeo=[],toRefine=rows.filter(r=>!geoCache[r.geoKey]);
-  for(let i=0;i<toRefine.length;i++){if(currentTab!=='map')break;const row=toRefine[i],coords=await geocodeDir(row);await sleep(1100);if(!coords){noGeo.push(row);continue;}if(!activeEstados.has(row.estado))continue;const dm=L.marker([coords.lat,coords.lng],{icon:mkPin(colorForEstado(row.estado),22)}).addTo(leafletMap);dm.on('click',()=>openMapDrawer(row));dirMarkers[row.exp]=dm;markers.push(dm);progText.textContent=`Precisando: ${i+1}/${toRefine.length}`;progBar.style.width=Math.round((i+1)/toRefine.length*100)+'%';}
-  progEl.style.display='none';renderNoUbicadas(sinDir,noGeo);
-  document.getElementById('mapIncList').addEventListener('click',e=>{const item=e.target.closest('[data-exp]');if(!item)return;const row=filteredRows.find(r=>r.exp===item.dataset.exp);if(!row)return;openMapDrawer(row);const dm=dirMarkers[row.exp];if(dm){leafletMap.setView(dm.getLatLng(),16,{animate:true});return;}const mm=munMarkers[row.municipio];if(mm){leafletMap.setView(mm.getLatLng(),13,{animate:true});}});
+  
+  const toRefine=rows;
+  for(let i=0;i<toRefine.length;i++){
+    if(currentTab!=='map')break;
+    const row=toRefine[i];
+    const coords=await geocodeDir(row);
+    await sleep(600);
+    if(!coords) continue;
+    if(!activeEstados.has(row.estado))continue;
+    const dm=L.marker([coords.lat,coords.lng],{icon:mkPin(colorForEstado(row.estado),22)}).addTo(leafletMap);
+    dm.on('click',()=>openMapDrawer(row));
+    dirMarkers[row.exp]=dm;markers.push(dm);
+    progText.textContent=`Precisando: ${i+1}/${toRefine.length}`;
+    progBar.style.width=Math.round((i+1)/toRefine.length*100)+'%';
+  }
+  progEl.style.display='none';renderNoUbicadas(sinDir,[]);
+  
+  document.getElementById('mapIncList').addEventListener('click',e=>{
+    const item=e.target.closest('[data-exp]');if(!item)return;
+    const row=filteredRows.find(r=>r.exp===item.dataset.exp);if(!row)return;
+    openMapDrawer(row);
+    const dm=dirMarkers[row.exp];if(dm){leafletMap.setView(dm.getLatLng(),16,{animate:true});return;}
+    const mm=munMarkers[row.municipio];if(mm){leafletMap.setView(mm.getLatLng(),13,{animate:true});}
+  });
 }
 
 function renderDashboard(){
@@ -1031,7 +1112,6 @@ function renderDashboard(){
     if(r.pen60==='vencida'||r.pen60==='aviso') addMes(mesesRiesgo,r.fApr,1);
   });
 
-  const noProcede=rows.filter(r=>r.estado==='No procede'||r.tipologia.toUpperCase().includes('NO PROCEDE'));
   const rowsProc=rows.filter(r=>r.estado!=='No procede'&&!r.tipologia.toUpperCase().includes('NO PROCEDE'));
 
   const enviados=rowsProc.filter(r=>r.fEnv!==null);
@@ -1552,7 +1632,6 @@ document.getElementById('fichaOverlay').addEventListener('click',e=>{if(e.target
 document.getElementById('btnDescargaExcel').addEventListener('click',descargarExcel);
 document.getElementById('btnDescargaPDF').addEventListener('click',descargarPDF);
 
-// Listeners para las nuevas mejoras del Mapa
 document.getElementById('mapFiltroComarca').addEventListener('change', renderMap);
 document.getElementById('toggleHeatmap').addEventListener('change', applyMapFilter);
 document.getElementById('drawerMapClose').addEventListener('click', ()=> document.getElementById('mapDrawer').classList.remove('open'));
