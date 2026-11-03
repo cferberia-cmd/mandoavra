@@ -463,10 +463,14 @@ tbody tr:hover td{background:var(--green-bg);}
 // --- LÓGICA DEL DASHBOARD ---
 const GIST_RAW="https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
 const REFRESH_MS=5*60*1000;
-const GEO_CACHE_KEY='avra_geo_v4';
+const GEO_CACHE_KEY='avra_geo_v5';
+const MUN_GEO_CACHE_KEY='avra_mun_geo_v2';
 let charts=[],rawRows=[],filteredRows=[],modalRows=[],modalTitleText='';
 let KEYS={},leafletMap=null,markers=[],currentTab='dash';
+
 let geoCache={};try{geoCache=JSON.parse(localStorage.getItem(GEO_CACHE_KEY)||'{}');}catch(e){geoCache={};}
+let munGeoCache={};try{munGeoCache=JSON.parse(localStorage.getItem(MUN_GEO_CACHE_KEY)||'{}');}catch(e){munGeoCache={};}
+
 let munMarkers={},dirMarkers={};
 let activeEstados=new Set(['Pdte. presupuesto','Pdte. aprobación','Aprobado','Facturado','No procede','Sin estado']);
 
@@ -913,19 +917,18 @@ function descargarPDF(){
   w.document.close();
 }
 
-const munGeoCache={};
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
-// GEOCODIFICACIÓN OPTIMIZADA CON RETRY Y BACKOFF EXPONENCIAL PARA EVITAR 429
+// --- GEOCODIFICACIÓN SEGURA SIN ERRORES DE CORS Y CON CACHÉ LOCAL ---
 async function geocodeMun(mun,intentos=3){
   if(munGeoCache[mun])return munGeoCache[mun];
   for(let i=0;i<intentos;i++){
     try{
       const q=encodeURIComponent(`${mun}, Jaén, España`);
-      const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
+      const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es'}});
       if(!res.ok){
         if(res.status===429){
-          await sleep(3000*(i+1)); // Backoff exponencial si hay límite superado
+          await sleep(3000*(i+1));
           continue;
         }
         await sleep(2000*(i+1));
@@ -935,6 +938,7 @@ async function geocodeMun(mun,intentos=3){
       if(d&&d[0]){
         const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
         munGeoCache[mun]=c;
+        try{localStorage.setItem(MUN_GEO_CACHE_KEY,JSON.stringify(munGeoCache));}catch(err){}
         return c;
       }
       break;
@@ -949,10 +953,10 @@ async function geocodeDir(row,intentos=3){
   if(geoCache[row.geoKey])return geoCache[row.geoKey];
   for(let i=0;i<intentos;i++){
     try{
-      const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(row.fullAddr)}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es','User-Agent':'AVRAJaenDashboard/1.0'}});
+      const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(row.fullAddr)}&format=json&limit=1&countrycodes=es`,{headers:{'Accept-Language':'es'}});
       if(!res.ok){
         if(res.status===429){
-          await sleep(3000*(i+1)); // Espera progresiva de 3s, 6s, 9s ante error 429
+          await sleep(3000*(i+1));
           continue;
         }
         await sleep(2000*(i+1));
@@ -962,7 +966,7 @@ async function geocodeDir(row,intentos=3){
       if(d&&d[0]){
         const c={lat:parseFloat(d[0].lat),lng:parseFloat(d[0].lon)};
         geoCache[row.geoKey]=c;
-        localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(geoCache));
+        try{localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(geoCache));}catch(err){}
         return c;
       }
       break;
@@ -1032,7 +1036,7 @@ async function renderMap(){
   
   for(let i=0;i<munList.length;i++){
     const mun=munList[i],munRows=byMun[mun];
-    if(!munGeoCache[mun])await sleep(2000); // Pausa segura de 2 segundos entre municipios
+    if(!munGeoCache[mun])await sleep(1500);
     const coords=await geocodeMun(mun);
     if(!coords)continue;
     munBounds.push([coords.lat,coords.lng]);
@@ -1053,8 +1057,8 @@ async function renderMap(){
   for(let i=0;i<toRefine.length;i++){
     if(currentTab!=='map')break;
     const row=toRefine[i];
+    if(!geoCache[row.geoKey])await sleep(1500);
     const coords=await geocodeDir(row);
-    await sleep(2000); // Pausa segura de 2 segundos entre direcciones para prevenir 429
     if(!coords){noGeo.push(row);continue;}
     if(!activeEstados.has(row.estado))continue;
     const dm=L.marker([coords.lat,coords.lng],{icon:mkPin(colorForEstado(row.estado),22)}).addTo(leafletMap);
@@ -1096,7 +1100,6 @@ function renderDashboard(){
   const tipologiaData = {};
   const aprobacionMesData = {};
 
-  // Estructura para el gráfico cruzado Municipio x Tipología
   const munTipologiaMap = {};
   const setTipologias = new Set();
 
