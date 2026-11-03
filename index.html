@@ -398,67 +398,7 @@ tbody tr:hover td{background:var(--green-bg);}
 </div>
 
 <script>
-// --- SISTEMA DE VALIDACIÓN DE ACCESO TEMPORAL (COMPACTO) ---
-(function() {
-    const CLAVE_SECRETA = "AVRA_Jaen_Master_Key_2026_Secure_Guard"; 
 
-    function verificarAcceso() {
-        const urlParams = new URLSearchParams(window.location.search);
-        let token = urlParams.get('t') || urlParams.get('token');
-
-        if (!token) {
-            bloquearPantalla("Acceso no autorizado. Se requiere un enlace de invitación válido.");
-            return;
-        }
-
-        try {
-            while (token.length % 4) token += '=';
-            
-            const decoded = JSON.parse(atob(token));
-            const ahora = Math.floor(Date.now() / 1000);
-
-            const user = Array.isArray(decoded) ? decoded[0] : decoded.user;
-            const exp = Array.isArray(decoded) ? decoded[1] : decoded.exp;
-            const sig = Array.isArray(decoded) ? decoded[2] : decoded.sig;
-
-            if (ahora > exp) {
-                bloquearPantalla("Este enlace temporal ha caducado. Solicite un nuevo acceso.");
-                return;
-            }
-
-            const firmaEsperada = btoa(user + "_" + exp + "_" + CLAVE_SECRETA).substring(0, 10);
-            const firmaAntigua = btoa(user + "_" + exp + "_" + CLAVE_SECRETA);
-
-            if (sig !== firmaEsperada && sig !== firmaAntigua) {
-                bloquearPantalla("Enlace de acceso inválido o manipulado.");
-                return;
-            }
-
-            console.log("Acceso concedido para: " + user);
-
-        } catch (e) {
-            bloquearPantalla("Error en el formato del token de acceso.");
-        }
-    }
-
-    function bloquearPantalla(mensaje) {
-        document.addEventListener("DOMContentLoaded", () => {
-            document.body.innerHTML = `
-                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f4f6f5;font-family:sans-serif;color:#111827;text-align:center;padding:20px;">
-                    <div style="background:#fff;padding:40px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.1);max-width:400px;width:100%;border:1.5px solid #e4ebe7;">
-                        <div style="font-size:40px;margin-bottom:15px;">🔒</div>
-                        <h2 style="font-size:18px;color:#e63946;margin-bottom:10px;">Acceso Restringido</h2>
-                        <p style="font-size:13px;color:#6b7a74;line-height:1.5;margin-bottom:20px;">${mensaje}</p>
-                        <div style="font-size:11px;color:#a0aea8;">Gestión de Incidencias · AVRA Jaén</div>
-                    </div>
-                </div>
-            `;
-        });
-        throw new Error("Acceso denegado");
-    }
-
-    verificarAcceso();
-})();
 
 // --- LÓGICA DEL DASHBOARD ---
 const GIST_RAW="https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
