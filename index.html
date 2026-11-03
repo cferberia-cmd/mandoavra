@@ -8,6 +8,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Leaflet Heatmap Plugin -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 <style>
 :root{
   --green-dark:#1a3c2e;--green:#2d6a4f;--green-mid:#40916c;--green-light:#74c69d;--green-xlight:#d8f3dc;--green-bg:#f0faf4;
@@ -165,9 +167,9 @@ tbody tr:hover td{background:var(--green-bg);}
 .exp-link{color:var(--green);font-weight:700;cursor:pointer;}
 .exp-link:hover{text-decoration:underline;}
 
-/* MAP */
+/* MAP & DRAWER */
 #mapTab{display:none;}
-.map-shell{display:grid;grid-template-columns:280px 1fr;gap:16px;height:calc(100vh - 200px);min-height:500px;}
+.map-shell{display:grid;grid-template-columns:300px 1fr;gap:16px;height:calc(100vh - 200px);min-height:500px;position:relative;}
 .map-sidebar{background:var(--surface);border-radius:var(--r);padding:16px;overflow-y:auto;box-shadow:var(--shadow);border:1.5px solid var(--border);display:flex;flex-direction:column;gap:12px;}
 .map-sidebar-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-ter);margin-bottom:4px;}
 .legend-pin{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:2px solid rgba(0,0,0,.12);}
@@ -183,7 +185,13 @@ tbody tr:hover td{background:var(--green-bg);}
 .map-inc-item:hover{background:var(--green-bg);border-color:var(--green-xlight);}
 .map-inc-exp{font-size:12px;font-weight:700;color:var(--green);}
 .map-inc-mun{font-size:11px;color:var(--text-sec);margin-top:1px;}
-#map{border-radius:var(--r);border:1.5px solid var(--border);box-shadow:var(--shadow);}
+#map{border-radius:var(--r);border:1.5px solid var(--border);box-shadow:var(--shadow);position:relative;}
+
+/* MAP DRAWER LATERAL FLOTANTE (Mejora 4) */
+#mapDrawer{position:absolute;top:0;right:0;bottom:0;width:380px;background:var(--surface);box-shadow:-8px 0 24px rgba(0,0,0,.15);z-index:1000;border-left:1.5px solid var(--border);border-radius:0 var(--r) var(--r) 0;display:flex;flex-direction:column;transform:translateX(105%);transition:transform .25s ease-in-out;}
+#mapDrawer.open{transform:translateX(0);}
+.map-drawer-hdr{padding:16px 20px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--green-bg);}
+.map-drawer-body{padding:20px;overflow-y:auto;flex:1;}
 
 /* MODAL */
 .overlay{position:fixed;inset:0;background:rgba(17,24,39,.5);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;}
@@ -288,14 +296,44 @@ tbody tr:hover td{background:var(--green-bg);}
       <div id="mapTab">
         <div class="map-shell">
           <div class="map-sidebar">
+            <!-- NUEVO: Filtro geográfico por comarca (Mejora 2) -->
+            <div>
+              <div class="map-sidebar-title">Comarca / Zona</div>
+              <select id="mapFiltroComarca" style="width:100%;border:1.5px solid var(--border);border-radius:20px;padding:6px 12px;font-size:12px;background:var(--bg);color:var(--text);margin-bottom:10px;">
+                <option value="">— Todas las comarcas —</option>
+                <option value="metropolitana">Área Metropolitana de Jaén</option>
+                <option value="loma">La Loma</option>
+                <option value="magina">Sierra Mágina</option>
+                <option value="segura">Sierra de Segura</option>
+                <option value="sierrasur">Sierra Sur</option>
+                <option value="condado">El Condado</option>
+                <option value="cazorla">Sierra de Cazorla</option>
+                <option value="morena">Sierra Morena</option>
+              </select>
+            </div>
             <div><div class="map-sidebar-title">Estado · Filtrar</div><div id="mapLegend" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;"></div></div>
+            <!-- NUEVO: Toggle para Mapa de Calor (Mejora 1) -->
+            <div style="background:var(--green-bg);padding:8px 10px;border-radius:8px;border:1px solid var(--green-xlight);display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:11px;font-weight:700;color:var(--green)">🔥 Mapa de Calor</span>
+              <input type="checkbox" id="toggleHeatmap" style="accent-color:var(--green);cursor:pointer;width:15px;height:15px;">
+            </div>
             <div id="geoProgress" style="display:none;" class="geo-progress"><div id="geoText">Geocodificando…</div><div class="geo-bar-wrap"><div class="geo-bar" id="geoBar" style="width:0%"></div></div></div>
             <div class="map-stats" id="mapStats"></div>
             <div class="map-sidebar-title" style="margin-top:4px;">Incidencias</div>
             <div class="map-inc-list" id="mapIncList"></div>
             <div id="mapNoUbicadas" style="display:none;background:var(--warning-light);border:1.5px solid #fde68a;border-radius:var(--r-sm);padding:10px 12px;margin-top:8px;"></div>
           </div>
-          <div id="map"></div>
+          <div style="position:relative;flex:1;display:flex;">
+            <div id="map" style="width:100%;height:100%;"></div>
+            <!-- NUEVO: Panel Lateral Flotante / Drawer (Mejora 4) -->
+            <div id="mapDrawer">
+              <div class="map-drawer-hdr">
+                <div id="drawerExpTitle" style="font-size:14px;font-weight:700;color:var(--green)">Detalle Expediente</div>
+                <button class="modal-close" id="drawerMapClose">✕</button>
+              </div>
+              <div class="map-drawer-body" id="drawerMapBody"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -376,67 +414,7 @@ tbody tr:hover td{background:var(--green-bg);}
 </div>
 
 <script>
-// --- SISTEMA DE VALIDACIÓN DE ACCESO TEMPORAL (COMPACTO) ---
-(function() {
-    const CLAVE_SECRETA = "AVRA_Jaen_Master_Key_2026_Secure_Guard"; 
 
-    function verificarAcceso() {
-        const urlParams = new URLSearchParams(window.location.search);
-        let token = urlParams.get('t') || urlParams.get('token');
-
-        if (!token) {
-            bloquearPantalla("Acceso no autorizado. Se requiere un enlace de invitación válido.");
-            return;
-        }
-
-        try {
-            while (token.length % 4) token += '=';
-            
-            const decoded = JSON.parse(atob(token));
-            const ahora = Math.floor(Date.now() / 1000);
-
-            const user = Array.isArray(decoded) ? decoded[0] : decoded.user;
-            const exp = Array.isArray(decoded) ? decoded[1] : decoded.exp;
-            const sig = Array.isArray(decoded) ? decoded[2] : decoded.sig;
-
-            if (ahora > exp) {
-                bloquearPantalla("Este enlace temporal ha caducado. Solicite un nuevo acceso.");
-                return;
-            }
-
-            const firmaEsperada = btoa(user + "_" + exp + "_" + CLAVE_SECRETA).substring(0, 10);
-            const firmaAntigua = btoa(user + "_" + exp + "_" + CLAVE_SECRETA);
-
-            if (sig !== firmaEsperada && sig !== firmaAntigua) {
-                bloquearPantalla("Enlace de acceso inválido o manipulado.");
-                return;
-            }
-
-            console.log("Acceso concedido para: " + user);
-
-        } catch (e) {
-            bloquearPantalla("Error en el formato del token de acceso.");
-        }
-    }
-
-    function bloquearPantalla(mensaje) {
-        document.addEventListener("DOMContentLoaded", () => {
-            document.body.innerHTML = `
-                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f4f6f5;font-family:sans-serif;color:#111827;text-align:center;padding:20px;">
-                    <div style="background:#fff;padding:40px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.1);max-width:400px;width:100%;border:1.5px solid #e4ebe7;">
-                        <div style="font-size:40px;margin-bottom:15px;">🔒</div>
-                        <h2 style="font-size:18px;color:#e63946;margin-bottom:10px;">Acceso Restringido</h2>
-                        <p style="font-size:13px;color:#6b7a74;line-height:1.5;margin-bottom:20px;">${mensaje}</p>
-                        <div style="font-size:11px;color:#a0aea8;">Gestión de Incidencias · AVRA Jaén</div>
-                    </div>
-                </div>
-            `;
-        });
-        throw new Error("Acceso denegado");
-    }
-
-    verificarAcceso();
-})();
 
 // --- LÓGICA DEL DASHBOARD ---
 const GIST_RAW="https://gist.githubusercontent.com/cferberia-cmd/428e16516bae61ac35c15be1c8b6fd8f/raw/incidencias.json";
@@ -446,7 +424,27 @@ let charts=[],rawRows=[],filteredRows=[],modalRows=[],modalTitleText='';
 let KEYS={},leafletMap=null,markers=[],currentTab='dash';
 let geoCache={};try{geoCache=JSON.parse(localStorage.getItem(GEO_CACHE_KEY)||'{}');}catch(e){geoCache={};}
 let munMarkers={},dirMarkers={};
+let heatLayer=null; // Capa de Mapa de Calor
 let activeEstados=new Set(['Pdte. presupuesto','Pdte. aprobación','Aprobado','Facturado','No procede','Sin estado']);
+
+// Mapeo de Comarcas de Jaén
+const COMARCAS_JAEN = {
+  metropolitana: ['JAÉN', 'TORREDELCAMPO', 'TORREDONJIMENO', 'MENGÍBAR', 'LA GUARDIA DE JAÉN', 'VILLARRODRIGO', 'FUENSANTA DE MARTOOS', 'MARTOOS', 'VILLARRODRIGO'],
+  loma: ['ÚBEDA', 'BAEZA', 'CANENA', 'JÓDAR', 'LINARES', 'VILCHES', 'SABIOTE', 'TORREPEROGIL'],
+  magina: ['JÓDAR', 'BÉEZ', 'CAMPILLO DE ARENAS', 'CUDENA', 'HUNCAR', 'HUELMA', 'TORRES', 'PAGAL', 'CAMBIL', 'JIMENA'],
+  segura: ['SEGURA DE LA SIERRA', 'ORCERA', 'BEAS DE SEGURA', 'ARROYO DEL OJANCO', 'LA PUERTA DE SEGURA', 'SIERRA DE SEGURA', 'SANTIAGO-PONTONES'],
+  sierrasur: ['ALCALÁ LA REAL', 'ALCAUDETE', 'CASTILLO DE LOCUBÍN', 'FRAILES'],
+  condado: ['VILLACARRILLO', 'NATIVIDAD', 'ARJONA', 'ARJONILLA', 'NAVAS DE SAN JUAN', 'SANTISTEBAN DEL PUERTO', 'CHICLANA DE SEGURA'],
+  cazorla: ['CAZORLA', 'LA IRUELA', 'QUESADA', 'POZO ALCÓN', 'HINOJARES'],
+  morena: ['ANDÚJAR', 'BAILÉN', 'LINARES', 'MARMOLEJO', 'VILLANUEVA DE LA REINA', 'LLANO DEL REY']
+};
+
+function perteneceComarca(mun, comarcaKey){
+  if(!comarcaKey) return true;
+  const lista = COMARCAS_JAEN[comarcaKey] || [];
+  const mNorm = norm(mun);
+  return lista.some(l => mNorm.includes(norm(l)));
+}
 
 const norm=s=>s?String(s).trim().toUpperCase().replace(/[\s\n]+/g,' '):'';
 function findKey(row,cands){const ks=Object.keys(row);for(const c of cands){const f=ks.find(k=>norm(k).includes(c));if(f)return f;}return null;}
@@ -640,6 +638,8 @@ function processRows(rows){
 
     const diasTramitacion=(fSolVal&&fAprVal)?diasLabTranscurridos(fSolVal,fAprVal):null;
     const diasRespuestaSub=(fSolVal&&fPresSubVal)?diasLabTranscurridos(fSolVal,fPresSubVal):null;
+    const diasEnvioAvra=(fSolVal&&fEnvVal)?diasLabTranscurridos(fSolVal,fEnvVal):null;
+    const diasAprobacionAvra=(fEnvVal&&fAprVal)?diasLabTranscurridos(fEnvVal,fAprVal):null;
 
     const mu=KEYS.mun?String(r[KEYS.mun]||'').trim():'';
     const pr=KEYS.provincia?String(r[KEYS.provincia]||'').trim():'Jaén';
@@ -654,7 +654,7 @@ function processRows(rows){
     return{raw:r,exp:r[KEYS.exp]||'—',municipio:mu,estado,obraLabel,prov:normProv(KEYS.prov?r[KEYS.prov]:null),
       base,baseSub,margenEuro,margenPct:margenPctFinal,total,tipologia,penalReal,esPenalizada,posPenal,excluida,esFacturada,
       fSol:fSolVal,fEnv:fEnvVal,fApr:fAprVal,fCon:fConVal,fFact,fVis:fVisVal,fPresSub:fPresSubVal,
-      p1Status,p1Dias,pen60,pen60Dias,aviso15,enPlazoPlat,diasTramitacion,diasRespuestaSub,
+      p1Status,p1Dias,pen60,pen60Dias,aviso15,enPlazoPlat,diasTramitacion,diasRespuestaSub,diasEnvioAvra,diasAprobacionAvra,
       semaforoPpto,diasPdtePpto,
       prior:!!(KEYS.prior&&r[KEYS.prior]&&norm(r[KEYS.prior])!==''),
       fullAddr,geoKey:fullAddr.toLowerCase()};
@@ -825,6 +825,30 @@ function openFicha(row){
 function penalStr(r){const v=KEYS.penal?r[KEYS.penal]:'';return v?String(v).trim():'—';}
 window._openFichaExp=exp=>{const row=rawRows.find(r=>r.exp===exp);if(row)openFicha(row);};
 
+// NUEVO: Abrir Panel Lateral Drawer en el Mapa (Mejora 4)
+function openMapDrawer(row){
+  const r=row.raw;
+  const field=(l,v)=>`<div class="ficha-field" style="margin-bottom:10px;"><div class="fl" style="font-size:10px;font-weight:700;color:var(--text-ter);text-transform:uppercase;">${l}</div><div class="fv" style="font-size:13px;font-weight:500;">${v||'—'}</div></div>`;
+  const dir=[KEYS.tipoVia?norm(r[KEYS.tipoVia]):'',KEYS.direccion?r[KEYS.direccion]:'',KEYS.numero?r[KEYS.numero]:'',KEYS.bloque?r[KEYS.bloque]:'',KEYS.piso?r[KEYS.piso]:'',KEYS.puerta?r[KEYS.puerta]:''].filter(v=>v&&String(v).trim()).join(' ');
+  
+  document.getElementById('drawerExpTitle').textContent=`Expediente ${row.exp}`;
+  document.getElementById('drawerMapBody').innerHTML=`
+    ${field('Municipio / Dirección', `${row.municipio} · ${dir||'Sin dirección'}`)}
+    ${field('Estado SERVEO', `<span class="badge" style="background:${colorForEstado(row.estado)}20;color:${colorForEstado(row.estado)}">${row.estado}</span>`)}
+    ${field('Proveedor', row.prov)}
+    ${field('Tipología', row.tipologia)}
+    ${field('Base SERVEO', row.base>0?euro2(row.base):null)}
+    ${field('Margen Bruto', euro2(row.margenEuro) + ' (' + fmtNum(row.margenPct) + '%)')}
+    ${field('F. Solicitud', row.fSol?fmtDate(r[KEYS.fSolicitud]):null)}
+    ${field('F. Aprobación', row.fApr?fmtDate(r[KEYS.fApr]):null)}
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="openFicha(filteredRows.find(x=>x.exp==='${row.exp}'))">Ver Ficha Completa →</button>
+    </div>
+  `;
+  document.getElementById('mapDrawer').classList.add('open');
+}
+window._openMapDrawerExp=exp=>{const row=rawRows.find(r=>r.exp===exp);if(row)openMapDrawer(row);};
+
 function openModal(title,rows){
   modalTitleText=title;modalRows=rows;
   document.getElementById('modalTitle').textContent=`${title} (${rows.length})`;
@@ -875,30 +899,46 @@ function buildMapLegend(rows){
   </label>`).join('')+`<div style="display:flex;gap:6px;margin-top:6px"><button onclick="selectAllEstados(true)" class="btn btn-sm" style="flex:1">✓ Todos</button><button onclick="selectAllEstados(false)" class="btn btn-sm" style="flex:1">✕ Ninguno</button></div>`;
   el.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',()=>{if(cb.checked)activeEstados.add(cb.dataset.estado);else activeEstados.delete(cb.dataset.estado);applyMapFilter();}));
 }
+
 function applyMapFilter(){
   if(!leafletMap)return;
   Object.values(munMarkers).forEach(m=>m.remove());munMarkers={};
-  const vis=filteredRows.filter(r=>activeEstados.has(r.estado));
+  const comarcaSel = document.getElementById('mapFiltroComarca').value;
+  const vis=filteredRows.filter(r=>activeEstados.has(r.estado) && perteneceComarca(r.municipio, comarcaSel));
+  
   const byMun={};vis.forEach(r=>{if(!byMun[r.municipio])byMun[r.municipio]=[];byMun[r.municipio].push(r);});
+  
+  const heatPoints = [];
   Object.entries(byMun).forEach(([mun,munRows])=>{
     const coords=munGeoCache[mun];if(!coords)return;
+    heatPoints.push([coords.lat, coords.lng, munRows.length]);
     const ec={};munRows.forEach(r=>{ec[r.estado]=(ec[r.estado]||0)+1;});
     const dom=Object.entries(ec).sort((a,b)=>b[1]-a[1])[0][0];
     const icon=munRows.length===1?mkPin(colorForEstado(dom)):mkCluster(colorForEstado(dom),munRows.length);
     const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);
-    m.bindPopup(L.popup({maxWidth:300}).setContent(popupMun(mun,munRows)));
+    
+    // Al hacer clic abre el drawer lateral (Mejora 4)
+    m.on('click', ()=> openMapDrawer(munRows[0]));
     munMarkers[mun]=m;
   });
-  Object.entries(dirMarkers).forEach(([exp,marker])=>{const row=filteredRows.find(r=>r.exp===exp);if(row&&activeEstados.has(row.estado)){if(!leafletMap.hasLayer(marker))marker.addTo(leafletMap);}else if(leafletMap.hasLayer(marker))marker.remove();});
+
+  // Gestionar Capa de Calor (Mejora 1)
+  if(heatLayer) { leafletMap.removeLayer(heatLayer); heatLayer = null; }
+  if(document.getElementById('toggleHeatmap').checked && heatPoints.length > 0){
+    heatLayer = L.heatLayer(heatPoints, {radius: 25, blur: 15, maxZoom: 14, gradient: {0.4: '#74c69d', 0.65: '#f4a261', 1.0: '#e63946'}}).addTo(leafletMap);
+  }
+
+  Object.entries(dirMarkers).forEach(([exp,marker])=>{const row=filteredRows.find(r=>r.exp===exp);if(row&&activeEstados.has(row.estado)&&perteneceComarca(row.municipio, comarcaSel)){if(!leafletMap.hasLayer(marker))marker.addTo(leafletMap);}else if(leafletMap.hasLayer(marker))marker.remove();});
   const list=document.getElementById('mapIncList');
-  if(list)list.querySelectorAll('.map-inc-item').forEach(item=>{const row=filteredRows.find(r=>r.exp===item.dataset.exp);item.style.display=(row&&activeEstados.has(row.estado))?'block':'none';});
+  if(list)list.querySelectorAll('.map-inc-item').forEach(item=>{const row=filteredRows.find(r=>r.exp===item.dataset.exp);item.style.display=(row&&activeEstados.has(row.estado)&&perteneceComarca(row.municipio, comarcaSel))?'block':'none';});
 }
+
 window.selectAllEstados=val=>{activeEstados=new Set(val?['Pdte. presupuesto','Pdte. aprobación','Aprobado','Facturado','No procede','Sin estado']:[]);document.querySelectorAll('#mapLegend input[type=checkbox]').forEach(cb=>{cb.checked=val;});applyMapFilter();};
-function popupMun(mun,rows){return`<div style="font-family:-apple-system,sans-serif;min-width:230px;max-width:290px"><div style="font-size:13px;font-weight:700;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e4ebe7">${mun} <span style="font-size:11px;color:#6b7a74">${rows.length} incidencia${rows.length>1?'s':''}</span></div><div style="max-height:260px;overflow-y:auto">${rows.map(r=>`<div onclick="window._openFichaExp('${r.exp}')" style="padding:7px 8px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#f4f6f5;border:1px solid #e4ebe7" onmouseover="this.style.background='#d8f3dc'" onmouseout="this.style.background='#f4f6f5'"><div style="font-size:12px;font-weight:700;color:#2d6a4f">${r.exp}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${colorForEstado(r.estado)}20;color:${colorForEstado(r.estado)}">${r.estado}</span>${r.base>0?`<span style="font-size:10px;color:#6b7a74">${euro2(r.base)}</span>`:''}</div></div>`).join('')}</div></div>`;}
 function renderNoUbicadas(sinDir,noGeo){const todas=[...new Map([...sinDir,...noGeo].map(r=>[r.exp,r])).values()];const el=document.getElementById('mapNoUbicadas');if(!el)return;if(!todas.length){el.style.display='none';return;}el.style.display='block';el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"><div style="display:flex;align-items:center;gap:6px"><span>⚠️</span><span style="font-size:12px;font-weight:700;color:var(--warning)">Sin ubicar</span><span style="background:var(--warning-light);color:#c07a30;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">${todas.length}</span></div><span style="font-size:11px;color:var(--text-ter)">▼</span></div><div style="display:none">${todas.map(r=>`<div onclick="window._openFichaExp('${r.exp}')" style="padding:7px 8px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#fff;border:1px solid #fde68a"><div style="font-size:12px;font-weight:700;color:var(--green)">${r.exp}</div><div style="font-size:11px;color:var(--text-sec)">${r.municipio}</div><div style="font-size:10px;color:#c07a30;margin-top:2px;font-weight:600">${!r.fullAddr||r.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length<=5?'⚠ Sin dirección':'⚠ Dirección no encontrada'}</div></div>`).join('')}</div>`;}
 
 async function renderMap(){
-  const rows=filteredRows;
+  const comarcaSel = document.getElementById('mapFiltroComarca').value;
+  const rows = filteredRows.filter(r => perteneceComarca(r.municipio, comarcaSel));
   if(!leafletMap){leafletMap=L.map('map',{zoomControl:true}).setView([37.9,-3.4],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(leafletMap);}
   markers.forEach(m=>m.remove());markers=[];Object.values(munMarkers).forEach(m=>m.remove());munMarkers={};Object.values(dirMarkers).forEach(m=>m.remove());dirMarkers={};
   buildMapLegend(rows);
@@ -909,12 +949,20 @@ async function renderMap(){
   const munList=Object.keys(byMun);
   const progEl=document.getElementById('geoProgress'),progText=document.getElementById('geoText'),progBar=document.getElementById('geoBar');
   progEl.style.display='block';const munBounds=[];
-  for(let i=0;i<munList.length;i++){const mun=munList[i],munRows=byMun[mun];if(!munGeoCache[mun])await sleep(1100);const coords=await geocodeMun(mun);if(!coords)continue;munBounds.push([coords.lat,coords.lng]);const ec={};munRows.forEach(r=>{ec[r.estado]=(ec[r.estado]||0)+1;});const dom=Object.entries(ec).sort((a,b)=>b[1]-a[1])[0][0];const vRows=munRows.filter(r=>activeEstados.has(r.estado));if(!vRows.length)continue;const icon=vRows.length===1?mkPin(colorForEstado(dom)):mkCluster(colorForEstado(dom),vRows.length);const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);m.bindPopup(L.popup({maxWidth:300}).setContent(popupMun(mun,munRows)));munMarkers[mun]=m;markers.push(m);progText.textContent=`Municipios: ${i+1}/${munList.length}`;progBar.style.width=Math.round((i+1)/munList.length*100)+'%';}
+  const heatPoints=[];
+
+  for(let i=0;i<munList.length;i++){const mun=munList[i],munRows=byMun[mun];if(!munGeoCache[mun])await sleep(1100);const coords=await geocodeMun(mun);if(!coords)continue;munBounds.push([coords.lat,coords.lng]);heatPoints.push([coords.lat,coords.lng,munRows.length]);const ec={};munRows.forEach(r=>{ec[r.estado]=(ec[r.estado]||0)+1;});const dom=Object.entries(ec).sort((a,b)=>b[1]-a[1])[0][0];const vRows=munRows.filter(r=>activeEstados.has(r.estado));if(!vRows.length)continue;const icon=vRows.length===1?mkPin(colorForEstado(dom)):mkCluster(colorForEstado(dom),vRows.length);const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);m.on('click',()=>openMapDrawer(vRows[0]));munMarkers[mun]=m;markers.push(m);progText.textContent=`Municipios: ${i+1}/${munList.length}`;progBar.style.width=Math.round((i+1)/munList.length*100)+'%';}
+
+  // Renderizar Mapa de Calor si está activo (Mejora 1)
+  if(document.getElementById('toggleHeatmap').checked && heatPoints.length>0){
+    heatLayer = L.heatLayer(heatPoints, {radius: 25, blur: 15, maxZoom: 14, gradient: {0.4: '#74c69d', 0.65: '#f4a261', 1.0: '#e63946'}}).addTo(leafletMap);
+  }
+
   if(munBounds.length)leafletMap.fitBounds(munBounds,{padding:[40,40],maxZoom:12});setTimeout(()=>leafletMap.invalidateSize(),100);
   const noGeo=[],toRefine=rows.filter(r=>!geoCache[r.geoKey]);
-  for(let i=0;i<toRefine.length;i++){if(currentTab!=='map')break;const row=toRefine[i],coords=await geocodeDir(row);await sleep(1100);if(!coords){noGeo.push(row);continue;}if(!activeEstados.has(row.estado))continue;const dm=L.marker([coords.lat,coords.lng],{icon:mkPin(colorForEstado(row.estado),22)}).addTo(leafletMap);dm.bindPopup(L.popup({maxWidth:280}).setContent(`<div style="font-family:-apple-system,sans-serif;min-width:200px"><div style="font-size:13px;font-weight:700;color:#2d6a4f;margin-bottom:4px">${row.exp}</div><span style="background:${colorForEstado(row.estado)}20;color:${colorForEstado(row.estado)};padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700">${row.estado}</span>${row.base>0?`<div style="font-size:11px;margin-top:8px"><strong>Base:</strong> ${euro2(row.base)}</div>`:''}<button onclick="window._openFichaExp('${row.exp}')" style="margin-top:10px;width:100%;padding:8px;background:#2d6a4f;color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer">Ver ficha →</button></div>`));dirMarkers[row.exp]=dm;markers.push(dm);progText.textContent=`Precisando: ${i+1}/${toRefine.length}`;progBar.style.width=Math.round((i+1)/toRefine.length*100)+'%';}
+  for(let i=0;i<toRefine.length;i++){if(currentTab!=='map')break;const row=toRefine[i],coords=await geocodeDir(row);await sleep(1100);if(!coords){noGeo.push(row);continue;}if(!activeEstados.has(row.estado))continue;const dm=L.marker([coords.lat,coords.lng],{icon:mkPin(colorForEstado(row.estado),22)}).addTo(leafletMap);dm.on('click',()=>openMapDrawer(row));dirMarkers[row.exp]=dm;markers.push(dm);progText.textContent=`Precisando: ${i+1}/${toRefine.length}`;progBar.style.width=Math.round((i+1)/toRefine.length*100)+'%';}
   progEl.style.display='none';renderNoUbicadas(sinDir,noGeo);
-  document.getElementById('mapIncList').addEventListener('click',e=>{const item=e.target.closest('[data-exp]');if(!item)return;const row=filteredRows.find(r=>r.exp===item.dataset.exp);if(!row)return;const dm=dirMarkers[row.exp];if(dm){leafletMap.setView(dm.getLatLng(),16,{animate:true});dm.openPopup();return;}const mm=munMarkers[row.municipio];if(mm){leafletMap.setView(mm.getLatLng(),13,{animate:true});mm.openPopup();}else openFicha(row);});
+  document.getElementById('mapIncList').addEventListener('click',e=>{const item=e.target.closest('[data-exp]');if(!item)return;const row=filteredRows.find(r=>r.exp===item.dataset.exp);if(!row)return;openMapDrawer(row);const dm=dirMarkers[row.exp];if(dm){leafletMap.setView(dm.getLatLng(),16,{animate:true});return;}const mm=munMarkers[row.municipio];if(mm){leafletMap.setView(mm.getLatLng(),13,{animate:true});}});
 }
 
 function renderDashboard(){
@@ -927,6 +975,10 @@ function renderDashboard(){
   let sBase=0,sBaseSub=0,sTotal=0,nPrior=0;
   const mesesSolicitud={},mesesEnviado={},mesesApr={},mesesFact={},mesesRiesgo={};
   let sumaDiasTram=0,nDiasTram=0,nEnPlazo=0,nTotal3d=0;
+
+  let sumDiasSolicitudSub=0, nDiasSolicitudSub=0;
+  let sumDiasEnvioAvra=0, nDiasEnvioAvra=0;
+  let sumDiasAprobacionAvra=0, nDiasAprobacionAvra=0;
 
   const pdteVerde = rows.filter(r=>r.semaforoPpto==='verde');
   const pdteAmarillo = rows.filter(r=>r.semaforoPpto==='amarillo');
@@ -958,6 +1010,10 @@ function renderDashboard(){
         provDiasSub[r.prov].push(r.diasRespuestaSub);
       }
     }
+
+    if(r.diasRespuestaSub !== null){ sumDiasSolicitudSub += r.diasRespuestaSub; nDiasSolicitudSub++; }
+    if(r.diasEnvioAvra !== null){ sumDiasEnvioAvra += r.diasEnvioAvra; nDiasEnvioAvra++; }
+    if(r.diasAprobacionAvra !== null){ sumDiasAprobacionAvra += r.diasAprobacionAvra; nDiasAprobacionAvra++; }
 
     sBase+=r.base;
     sBaseSub+=r.baseSub;
@@ -994,8 +1050,12 @@ function renderDashboard(){
   const provArr=Object.entries(provCount).map(([n,v])=>{
     const arrD=provDiasSub[n]||[0];
     const avgD=arrD.length?Math.round(arrD.reduce((a,b)=>a+b,0)/arrD.length):0;
-    return {name:n,count:v,base:provBase[n]||0,diasAvg:avgD};
-  }).sort((a,b)=>b.count-a.count);
+    const pBase=provBase[n]||0;
+    const pMargenEuro=rows.filter(r=>r.prov===n).reduce((acc,r)=>acc+r.margenEuro,0);
+    const pMargenPct=pBase>0?(pMargenEuro/pBase)*100:0;
+    const pEnCurso=rows.filter(r=>r.prov===n && r.estado!=='Facturado' && r.estado!=='No procede').length;
+    return {name:n,count:v,base:pBase,diasAvg:avgD,margenEuro:pMargenEuro,margenPct:pMargenPct,enCurso:pEnCurso};
+  }).sort((a,b)=>b.base-a.base);
 
   const allMeses=[...new Set([...Object.keys(mesesSolicitud),...Object.keys(mesesEnviado),...Object.keys(mesesApr),...Object.keys(mesesFact)])].sort();
 
@@ -1109,24 +1169,66 @@ function renderDashboard(){
     </div>
   </div>
 
-  <div class="block-title" style="margin-top:8px"><span>4</span>Análisis Avanzado de Eficiencia y Rentabilidad</div>
+  <div class="block-title" style="margin-top:8px"><span>4</span>Análisis Avanzado de Eficiencia, Cuellos de Botella y Proveedores</div>
 
   <div class="charts-grid">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Análisis de Cuellos de Botella (Tiempos muertos por fase)</span><span class="card-subtitle">Media en días hábiles</span></div>
+      <div class="chart-wrap h260"><canvas id="cuelloBotellaChart"></canvas></div>
+    </div>
     <div class="card">
       <div class="card-header"><span class="card-title">1. Respuesta Media por Subcontrata</span><span class="card-subtitle">Días hábiles en elaborar presupuesto</span></div>
       <div class="chart-wrap h260"><canvas id="provChart"></canvas></div>
     </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">2. Rentabilidad y Margen Bruto</span><span class="card-subtitle">Base SERVEO vs % Margen por Tipología</span></div>
-      <div class="chart-wrap h260"><canvas id="rentabilidadChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Matriz de Carga de Trabajo y Rendimiento por Subcontrata</span>
+      <span class="card-subtitle">Volumen, incidencias en curso y rentabilidad</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Proveedor / Subcontrata</th>
+            <th>Total Expedientes</th>
+            <th>En Curso</th>
+            <th>Base Acumulada (€)</th>
+            <th>Margen Bruto (€)</th>
+            <th>% Margen Medio</th>
+            <th>Días Medios Presupuesto</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${provArr.map(p => `
+            <tr style="cursor:pointer" onclick="openModal('Incidencias de la subcontrata: ${p.name}', filteredRows.filter(r => r.prov === '${p.name}'))">
+              <td><strong>${p.name}</strong></td>
+              <td>${p.count}</td>
+              <td><span class="badge ${p.enCurso>0?'warn':'ok'}">${p.enCurso} activas</span></td>
+              <td>${euro2(p.base)}</td>
+              <td>${euro2(p.margenEuro)}</td>
+              <td><strong style="color:${p.margenPct<20?'var(--danger)':'var(--green)'}">${fmtNum(p.margenPct)}%</strong></td>
+              <td>${p.diasAvg} días lab.</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
     </div>
   </div>
 
   <div class="charts-grid">
     <div class="card">
+      <div class="card-header"><span class="card-title">2. Rentabilidad y Margen Bruto</span><span class="card-subtitle">Base SERVEO vs % Margen por Tipología</span></div>
+      <div class="chart-wrap h260"><canvas id="rentabilidadChart"></canvas></div>
+    </div>
+    <div class="card">
       <div class="card-header"><span class="card-title">3. Embudo Operativo de Tramitación</span><span class="card-subtitle">Conversión por fases del servicio</span></div>
       <div class="chart-wrap h260"><canvas id="funnelChart"></canvas></div>
     </div>
+  </div>
+
+  <div class="charts-grid full">
     <div class="card">
       <div class="card-header"><span class="card-title">4. Facturado Real vs Importe en Riesgo</span><span class="card-subtitle">Evolución por fecha de aprobación</span></div>
       <div class="chart-wrap h260"><canvas id="riesgoChart"></canvas></div>
@@ -1179,6 +1281,33 @@ function renderDashboard(){
     kpiSemVerde: {title:'AL DÍA: Pendiente Presupuesto (<2 días hábiles)', fn:r=>r.semaforoPpto==='verde'}
   };
   Object.entries(kpiMap).forEach(([id,{title,fn}])=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>openModal(title,filteredRows.filter(fn)));});
+
+  if(document.getElementById('cuelloBotellaChart')){
+    const avgSolSub = nDiasSolicitudSub > 0 ? (sumDiasSolicitudSub / nDiasSolicitudSub).toFixed(1) : 0;
+    const avgEnvAvra = nDiasEnvioAvra > 0 ? (sumDiasEnvioAvra / nDiasEnvioAvra).toFixed(1) : 0;
+    const avgAprAvra = nDiasAprobacionAvra > 0 ? (sumDiasAprobacionAvra / nDiasAprobacionAvra).toFixed(1) : 0;
+
+    const c = new Chart(document.getElementById('cuelloBotellaChart'), {
+      type: 'bar',
+      data: {
+        labels: ['1. Solicitud → Ppto. Subcontrata', '2. Ppto. Subcontrata → Envío AVRA', '3. Envío AVRA → Aprobación AVRA'],
+        datasets: [{
+          label: 'Días hábiles medios de espera',
+          data: [avgSolSub, avgEnvAvra, avgAprAvra],
+          backgroundColor: ['#f4a261', '#457b9d', '#2d6a4f'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { title: { display: true, text: 'Días hábiles promedio' } } }
+      }
+    });
+    charts.push(c);
+  }
 
   if(provArr.length && document.getElementById('provChart')){
     const c = new Chart(document.getElementById('provChart'), {
@@ -1422,6 +1551,12 @@ document.getElementById('fichaClose').addEventListener('click',()=>document.getE
 document.getElementById('fichaOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('fichaOverlay'))document.getElementById('fichaOverlay').style.display='none';});
 document.getElementById('btnDescargaExcel').addEventListener('click',descargarExcel);
 document.getElementById('btnDescargaPDF').addEventListener('click',descargarPDF);
+
+// Listeners para las nuevas mejoras del Mapa
+document.getElementById('mapFiltroComarca').addEventListener('change', renderMap);
+document.getElementById('toggleHeatmap').addEventListener('change', applyMapFilter);
+document.getElementById('drawerMapClose').addEventListener('click', ()=> document.getElementById('mapDrawer').classList.remove('open'));
+
 document.getElementById('modalBody').addEventListener('click',e=>{const el=e.target.closest('.exp-link');if(!el)return;const row=rawRows.find(r=>r.exp===el.dataset.exp);if(row)openFicha(row);});
 
 loadData();
