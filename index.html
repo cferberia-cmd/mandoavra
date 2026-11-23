@@ -225,22 +225,14 @@ tbody tr:hover td{background:var(--green-bg);}
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Dashboard
       </button>
-      <button class="nav-item" id="navMap">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-        Mapa de incidencias
-        <span class="nav-badge" id="navMapBadge">…</span>
-      </button>
       <div class="nav-label" style="margin-top:20px">Acciones</div>
       <button class="nav-item" id="navRefresh">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
         Actualizar datos
       </button>
     </nav>
-    <div class="sidebar-footer">
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;">
-        <div style="width:32px;height:32px;border-radius:50%;background:var(--green-mid);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">CF</div>
-        <div><div style="font-size:12px;font-weight:600;color:#fff">Serveo AVRA</div><div style="font-size:10px;color:rgba(255,255,255,.4)">Supervisor obras</div></div>
-      </div>
+    <div class="sidebar-footer" style="padding:16px 12px;display:flex;justify-content:center;align-items:center;">
+      <img src="data:image/png;base64,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" alt="Serveo Logo" style="width:100%;max-width:180px;height:auto;border-radius:8px;display:block;object-fit:contain;">
     </div>
   </aside>
 
@@ -292,48 +284,11 @@ tbody tr:hover td{background:var(--green-bg);}
       <div id="dashTab">
         <div id="content"><div class="placeholder"><strong>Conectando…</strong>Cargando datos en vivo</div></div>
       </div>
-      <div id="mapTab">
-        <div class="map-shell">
-          <div class="map-sidebar">
-            <div><div class="map-sidebar-title">Estado · Filtrar</div><div id="mapLegend" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;"></div></div>
-            <div id="geoProgress" style="display:none;" class="geo-progress"><div id="geoText">Geocodificando…</div><div class="geo-bar-wrap"><div class="geo-bar" id="geoBar" style="width:0%"></div></div></div>
-            <div class="map-stats" id="mapStats"></div>
-            <div class="map-sidebar-title" style="margin-top:4px;">Incidencias</div>
-            <div class="map-inc-list" id="mapIncList"></div>
-            <div id="mapNoUbicadas" style="display:none;background:var(--warning-light);border:1.5px solid #fde68a;border-radius:var(--r-sm);padding:10px 12px;margin-top:8px;"></div>
-          </div>
-          
-          <div style="position:relative; flex:1; height:100%;">
-            <div id="map" style="width:100%; height:100%;"></div>
-            
-            <!-- PANEL DRAWER FLOTANTE DE DETALLE RÁPIDO EN MAPA -->
-            <div id="mapDetailDrawer">
-              <div class="drawer-hdr">
-                <h3 id="drawerTitle">Detalle de Incidencia</h3>
-                <button class="modal-close" onclick="closeMapDrawer()">✕</button>
-              </div>
-              <div class="drawer-body" id="drawerBody">
-                <!-- Se rellena dinámicamente -->
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-  <!-- BOTTOM NAV (móvil/tablet) -->
+      <!-- BOTTOM NAV (móvil/tablet) -->
   <nav class="bottom-nav">
     <button class="bn-item active" id="bnDash">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Dashboard
-    </button>
-    <button class="bn-item" id="bnMap">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-      <span class="bn-badge" id="bnMapBadge">…</span>
-      Mapa
     </button>
     <button class="bn-item" id="bnFilter">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -572,11 +527,9 @@ function processRows(rows){
     posPenal:findKey(s,['POSIBLE PENALIZACION']),
     plazo:findKey(s,['PLAZO EJECUCION MESES']),
     prior:findKey(s,['PRIORITARIO']),
-    margen:findKey(s,['MARGEN BRUTO','MARGEN']),
     obsSub:findKey(s,['OBSERVACIONES SUBCONTRATA']),
     obsServ:findKey(s,['OBSERVACIONES SERVEO']),
-    baseSub:findKey(s,['BASE PRESUPUESTO SUBCONTRATA'])
-  };
+    };
 
   const HOY=new Date();HOY.setHours(0,0,0,0);
 
@@ -587,8 +540,10 @@ function processRows(rows){
     const baseSub=Math.max(0,parseNum(KEYS.baseSub?r[KEYS.baseSub]:0));
     
     let totalRaw = parseNum(KEYS.total ? r[KEYS.total] : 0);
-    if (base > 0 && totalRaw > base * 3) {
+    if (base > 0) {
         totalRaw = base * 1.21;
+    } else if (totalRaw < 0 || totalRaw > 1000000) {
+        totalRaw = 0;
     }
     const total = totalRaw;
 
@@ -680,7 +635,7 @@ function processRows(rows){
     const fullAddr=[tv,di,nu,bl,pi,pu,mu,pr,'España'].filter(Boolean).join(', ');
 
     return{raw:r,exp:r[KEYS.exp]||'—',municipio:mu,estado,obraLabel,prov:normProv(KEYS.prov?r[KEYS.prov]:null),
-      base,baseSub,margenEuro,margenPct:margenPctFinal,total,tipologia,penalReal,esPenalizada,posPenal,excluida,esFacturada,
+      base,total,tipologia,penalReal,esPenalizada,posPenal,excluida,esFacturada,
       fSol:fSolVal,fEnv:fEnvVal,fApr:fAprVal,fCon:fConVal,fFact,fVis:fVisVal,fPresSub:fPresSubVal,
       p1Status,p1Dias,pen60,pen60Dias,aviso15,enPlazoPlat,diasTramitacion,diasRespuestaSub,diasEnvioAvra,diasAprobacionAvra,
       semaforoPpto,diasPdtePpto,
@@ -836,11 +791,8 @@ function openFicha(row){
       ${field('F. Conformidad',KEYS.fCon?fmtDate(r[KEYS.fCon]):null)}
       ${field('F. Facturado',KEYS.fFact?fmtDate(r[KEYS.fFact]):null)}
     </div></div>
-    <div class="ficha-section"><div class="ficha-section-title">Importes y Margen</div><div class="ficha-grid">
+    <div class="ficha-section"><div class="ficha-section-title">Importes</div><div class="ficha-grid">
       ${field('Base SERVEO',row.base>0?`<strong style="color:var(--green);font-size:14px">${euro2(row.base)}</strong>`:null)}
-      ${field('Base Subcontrata',row.baseSub>0?euro2(row.baseSub):null)}
-      ${field('Margen Bruto (€)',euro2(row.margenEuro))}
-      ${field('% Margen Bruto',fmtNum(row.margenPct)+'%')}
       ${field('Total c/IVA',row.total>0?euro2(row.total):null)}
       ${field('Penalización contab.',row.esPenalizada?penalStr(r):null)}
       ${field('Posible penalización',row.posPenal||null)}
@@ -873,7 +825,7 @@ function openMapDrawer(row){
     ${field('Estado SERVEO', `<span class="badge" style="background:${colorForEstado(row.estado)}20;color:${colorForEstado(row.estado)}">${row.estado}</span>`)}
     ${field('Proveedor', row.prov)}
     ${field('Base SERVEO', row.base>0?`<strong style="color:var(--green)">${euro2(row.base)}</strong>`:null)}
-    ${field('Margen Bruto', euro2(row.margenEuro)+' ('+fmtNum(row.margenPct)+'%)')}
+    ${field('Total c/IVA', row.total>0?euro2(row.total):null)}
     ${field('F. Solicitud', KEYS.fSolicitud?fmtDate(r[KEYS.fSolicitud]):null)}
     ${field('F. Aprobación', KEYS.fApr?fmtDate(r[KEYS.fApr]):null)}
     <div style="margin-top:20px;">
@@ -893,7 +845,7 @@ function openModal(title,rows){
   document.getElementById('modalBody').innerHTML=`<div class="tbl-wrap"><table><thead><tr>
     <th>Expediente</th><th>Municipio</th><th>Proveedor</th><th>Tipología</th><th>Estado</th>
     <th>F.Solicitud</th><th>F.Enviado</th><th>F.Aprobación</th>
-    <th>Base SERVEO</th><th>Margen %</th><th style="text-align:right">Total</th>
+    <th>Base SERVEO</th><th style="text-align:right">Total c/IVA</th>
   </tr></thead><tbody>${rows.map(r=>`<tr>
     <td><span class="exp-link" data-exp="${r.exp}">${r.exp}</span></td>
     <td>${r.municipio}</td><td>${r.prov}</td><td>${r.tipologia||'—'}</td>
@@ -902,13 +854,12 @@ function openModal(title,rows){
     <td>${r.fEnv?fmtDate(r.raw[KEYS.fEnviado]):'—'}</td>
     <td>${r.fApr?fmtDate(r.raw[KEYS.fApr]):'—'}</td>
     <td>${r.base>0?euro2(r.base):'—'}</td>
-    <td><strong style="color:${r.margenPct<20?'var(--danger)':'var(--green)'}">${fmtNum(r.margenPct)}%</strong></td>
     <td style="text-align:right">${r.total>0?euro2(r.total):'—'}</td>
   </tr>`).join('')}</tbody></table></div>`;
   document.getElementById('modalOverlay').style.display='flex';
 }
 function descargarExcel(){
-  const data=modalRows.map(r=>({'Expediente':r.exp,'Municipio':r.municipio,'Proveedor':r.prov,'Tipología':r.tipologia,'Estado':r.estado,'F.Solicitud':r.fSol?fmtDate(r.raw[KEYS.fSolicitud]):'','F.Enviado':r.fEnv?fmtDate(r.raw[KEYS.fEnviado]):'','F.Aprobación':r.fApr?fmtDate(r.raw[KEYS.fApr]):'','Base SERVEO':r.base,'Base Subcontrata':r.baseSub,'Margen Euro':r.margenEuro,'Margen Pct':r.margenPct,'Total':r.total}));
+  const data=modalRows.map(r=>({'Expediente':r.exp,'Municipio':r.municipio,'Proveedor':r.prov,'Tipología':r.tipologia,'Estado':r.estado,'F.Solicitud':r.fSol?fmtDate(r.raw[KEYS.fSolicitud]):'','F.Enviado':r.fEnv?fmtDate(r.raw[KEYS.fEnviado]):'','F.Aprobación':r.fApr?fmtDate(r.raw[KEYS.fApr]):'','Base SERVEO':r.base,'Total c/IVA':r.total}));
   const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Incidencias');XLSX.writeFile(wb,`${modalTitleText.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
 }
 function descargarPDF(){
@@ -1021,54 +972,163 @@ window._openDrawerFromPopup=exp=>{
 };
 function renderNoUbicadas(sinDir,noGeo){const todas=[...new Map([...sinDir,...noGeo].map(r=>[r.exp,r])).values()];const el=document.getElementById('mapNoUbicadas');if(!el)return;if(!todas.length){el.style.display='none';return;}el.style.display='block';el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"><div style="display:flex;align-items:center;gap:6px"><span>⚠️</span><span style="font-size:12px;font-weight:700;color:var(--warning)">Sin ubicar</span><span style="background:var(--warning-light);color:#c07a30;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700">${todas.length}</span></div><span style="font-size:11px;color:var(--text-ter)">▼</span></div><div style="display:none">${todas.map(r=>`<div onclick="window._openFichaExp('${r.exp}')" style="padding:7px 8px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#fff;border:1px solid #fde68a"><div style="font-size:12px;font-weight:700;color:var(--green)">${r.exp}</div><div style="font-size:11px;color:var(--text-sec)">${r.municipio}</div><div style="font-size:10px;color:#c07a30;margin-top:2px;font-weight:600">${!r.fullAddr||r.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length<=5?'⚠ Sin dirección':'⚠ Dirección no encontrada'}</div></div>`).join('')}</div>`;}
 
+let leafletTileLayer=null;
+let mapRenderToken=0;
+let mapHasInitialBounds=false;
+let mapListBound=false;
+
+function ensureLeafletMap(){
+  const mapEl=document.getElementById('map');
+  if(!mapEl)return null;
+  if(!leafletMap){
+    leafletMap=L.map('map',{zoomControl:true}).setView([37.9,-3.4],10);
+    leafletTileLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom:19,
+      keepVisible:true
+    });
+    leafletTileLayer.on('tileerror',()=>{
+      if(leafletMap&&leafletTileLayer){
+        try{leafletTileLayer.redraw();}catch(e){}
+      }
+    });
+    leafletTileLayer.addTo(leafletMap);
+    if(typeof ResizeObserver!=='undefined'){
+      const ro=new ResizeObserver(()=>{
+        if(leafletMap)leafletMap.invalidateSize({debounceMoveUpdate:true});
+      });
+      ro.observe(mapEl);
+    }
+  }else{
+    if(leafletTileLayer&&!leafletMap.hasLayer(leafletTileLayer)){
+      leafletTileLayer.addTo(leafletMap);
+    }
+  }
+  leafletMap.invalidateSize();
+  return leafletMap;
+}
+
+function refreshMapViewport(){
+  if(!leafletMap)return;
+  if(leafletTileLayer&&!leafletMap.hasLayer(leafletTileLayer)){
+    leafletTileLayer.addTo(leafletMap);
+  }
+  leafletMap.invalidateSize();
+  if(leafletTileLayer){
+    try{leafletTileLayer.redraw();}catch(e){}
+  }
+}
+
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden){
+    setTimeout(()=>refreshMapViewport(),80);
+  }
+});
+window.addEventListener('focus',()=>{
+  setTimeout(()=>refreshMapViewport(),80);
+});
+
 async function renderMap(){
+  const token=++mapRenderToken;
   const rows=filteredRows;
-  if(!leafletMap){leafletMap=L.map('map',{zoomControl:true}).setView([37.9,-3.4],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(leafletMap);}
-  markers.forEach(m=>m.remove());markers=[];Object.values(munMarkers).forEach(m=>m.remove());munMarkers={};Object.values(dirMarkers).forEach(m=>m.remove());dirMarkers={};
+  const mapInstance=ensureLeafletMap();
+  if(!mapInstance)return;
+
+  if(!mapListBound){
+    const listEl=document.getElementById('mapIncList');
+    if(listEl){
+      listEl.addEventListener('click',e=>{
+        const item=e.target.closest('[data-exp]');
+        if(!item)return;
+        const row=filteredRows.find(r=>r.exp===item.dataset.exp);
+        if(!row)return;
+        const dm=dirMarkers[row.exp];
+        if(dm){leafletMap.setView(dm.getLatLng(),16,{animate:true});openMapDrawer(row);return;}
+        const mm=munMarkers[row.municipio];
+        if(mm){leafletMap.setView(mm.getLatLng(),13,{animate:true});mm.openPopup();}
+        else openFicha(row);
+      });
+      mapListBound=true;
+    }
+  }
+
+  markers.forEach(m=>{try{m.remove();}catch(e){}});markers=[];
+  Object.values(munMarkers).forEach(m=>{try{m.remove();}catch(e){}});munMarkers={};
+  Object.values(dirMarkers).forEach(m=>{try{m.remove();}catch(e){}});dirMarkers={};
+
   buildMapLegend(rows);
   document.getElementById('mapStats').innerHTML=`<div class="map-stat"><div class="map-stat-val">${rows.length}</div><div class="map-stat-label">Total</div></div><div class="map-stat"><div class="map-stat-val" style="color:var(--danger)">${rows.filter(r=>r.pen60==='vencida').length}</div><div class="map-stat-label">Vencidas</div></div><div class="map-stat"><div class="map-stat-val" style="color:var(--green)">${rows.filter(r=>r.estado==='Aprobado').length}</div><div class="map-stat-label">Aprobadas</div></div><div class="map-stat"><div class="map-stat-val" style="color:var(--warning)">${rows.filter(r=>r.estado==='Pdte. presupuesto').length}</div><div class="map-stat-label">Pdte.ppto.</div></div>`;
-  document.getElementById('navMapBadge').textContent=rows.length;
   document.getElementById('mapIncList').innerHTML=rows.map(r=>`<div class="map-inc-item" data-exp="${r.exp}"><div class="map-inc-exp">${r.exp}</div><div class="map-inc-mun">${r.municipio}</div><div style="margin-top:4px"><span class="badge" style="background:${colorForEstado(r.estado)}18;color:${colorForEstado(r.estado)}">${r.estado}</span></div></div>`).join('');
-  const sinDir=[],byMun={};rows.forEach(r=>{if(!r.fullAddr||r.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length<=5)sinDir.push(r);if(!byMun[r.municipio])byMun[r.municipio]=[];byMun[r.municipio].push(r);});
+
+  const sinDir=[],byMun={};
+  rows.forEach(r=>{
+    if(!r.fullAddr||r.fullAddr.replace(/,/g,'').replace(/España/i,'').trim().length<=5)sinDir.push(r);
+    if(!byMun[r.municipio])byMun[r.municipio]=[];
+    byMun[r.municipio].push(r);
+  });
+
   const munList=Object.keys(byMun);
   const progEl=document.getElementById('geoProgress'),progText=document.getElementById('geoText'),progBar=document.getElementById('geoBar');
-  progEl.style.display='block';const munBounds=[];
-  
-  for(let i=0;i<munList.length;i++){
-    const mun=munList[i],munRows=byMun[mun];
-    if(!munGeoCache[mun])await sleep(1500);
-    const coords=await geocodeMun(mun);
-    if(!coords)continue;
-    munBounds.push([coords.lat,coords.lng]);
-    const ec={};munRows.forEach(r=>{ec[r.estado]=(ec[r.estado]||0)+1;});
-    const dom=Object.entries(ec).sort((a,b)=>b[1]-a[1])[0][0];
-    const vRows=munRows.filter(r=>activeEstados.has(r.estado));
-    if(!vRows.length)continue;
-    const icon=vRows.length===1?mkPin(colorForEstado(dom)):mkCluster(colorForEstado(dom),vRows.length);
-    const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);
-    m.bindPopup(L.popup({maxWidth:300}).setContent(popupMun(mun,munRows)));
-    munMarkers[mun]=m;markers.push(m);
-    progText.textContent=`Municipios: ${i+1}/${munList.length}`;
-    progBar.style.width=Math.round((i+1)/munList.length*100)+'%';
+  const munBounds=[];
+
+  try{
+    const uncachedMun=munList.filter(m=>!munGeoCache[m]);
+    if(uncachedMun.length&&progEl)progEl.style.display='block';
+
+    for(let i=0;i<munList.length;i++){
+      if(token!==mapRenderToken)return;
+      const mun=munList[i],munRows=byMun[mun];
+      const wasCached=!!munGeoCache[mun];
+      if(!wasCached)await sleep(400);
+      if(token!==mapRenderToken)return;
+      const coords=await geocodeMun(mun);
+      if(!coords)continue;
+      munBounds.push([coords.lat,coords.lng]);
+      const ec={};munRows.forEach(r=>{ec[r.estado]=(ec[r.estado]||0)+1;});
+      const dom=Object.entries(ec).sort((a,b)=>b[1]-a[1])[0][0];
+      const vRows=munRows.filter(r=>activeEstados.has(r.estado));
+      if(!vRows.length)continue;
+      const icon=vRows.length===1?mkPin(colorForEstado(dom)):mkCluster(colorForEstado(dom),vRows.length);
+      const m=L.marker([coords.lat,coords.lng],{icon}).addTo(leafletMap);
+      m.bindPopup(L.popup({maxWidth:300}).setContent(popupMun(mun,munRows)));
+      munMarkers[mun]=m;markers.push(m);
+      if(!wasCached&&progText&&progBar){
+        progText.textContent=`Municipios: ${i+1}/${munList.length}`;
+        progBar.style.width=Math.round((i+1)/munList.length*100)+'%';
+      }
+    }
+
+    if(!mapHasInitialBounds&&munBounds.length){
+      leafletMap.fitBounds(munBounds,{padding:[40,40],maxZoom:12});
+      mapHasInitialBounds=true;
+    }
+    refreshMapViewport();
+
+    const noGeo=[],toRefine=rows.filter(r=>!geoCache[r.geoKey]);
+    for(let i=0;i<toRefine.length;i++){
+      if(token!==mapRenderToken)return;
+      const row=toRefine[i];
+      await sleep(400);
+      if(token!==mapRenderToken)return;
+      const coords=await geocodeDir(row);
+      if(!coords){noGeo.push(row);continue;}
+      if(!activeEstados.has(row.estado))continue;
+      const dm=L.marker([coords.lat,coords.lng],{icon:mkPin(colorForEstado(row.estado),22)}).addTo(leafletMap);
+      dm.on('click',()=>openMapDrawer(row));
+      dirMarkers[row.exp]=dm;markers.push(dm);
+      if(progEl&&progText&&progBar){
+        progEl.style.display='block';
+        progText.textContent=`Precisando: ${i+1}/${toRefine.length}`;
+        progBar.style.width=Math.round((i+1)/toRefine.length*100)+'%';
+      }
+    }
+    renderNoUbicadas(sinDir,noGeo);
+  }finally{
+    if(token===mapRenderToken&&progEl){
+      progEl.style.display='none';
+    }
+    refreshMapViewport();
   }
-  if(munBounds.length)leafletMap.fitBounds(munBounds,{padding:[40,40],maxZoom:12});setTimeout(()=>leafletMap.invalidateSize(),100);
-  
-  const noGeo=[],toRefine=rows.filter(r=>!geoCache[r.geoKey]);
-  for(let i=0;i<toRefine.length;i++){
-    if(currentTab!=='map')break;
-    const row=toRefine[i];
-    if(!geoCache[row.geoKey])await sleep(1500);
-    const coords=await geocodeDir(row);
-    if(!coords){noGeo.push(row);continue;}
-    if(!activeEstados.has(row.estado))continue;
-    const dm=L.marker([coords.lat,coords.lng],{icon:mkPin(colorForEstado(row.estado),22)}).addTo(leafletMap);
-    dm.on('click',()=>openMapDrawer(row));
-    dirMarkers[row.exp]=dm;markers.push(dm);
-    progText.textContent=`Precisando: ${i+1}/${toRefine.length}`;
-    progBar.style.width=Math.round((i+1)/toRefine.length*100)+'%';
-  }
-  progEl.style.display='none';renderNoUbicadas(sinDir,noGeo);
-  document.getElementById('mapIncList').addEventListener('click',e=>{const item=e.target.closest('[data-exp]');if(!item)return;const row=filteredRows.find(r=>r.exp===item.dataset.exp);if(!row)return;const dm=dirMarkers[row.exp];if(dm){leafletMap.setView(dm.getLatLng(),16,{animate:true});openMapDrawer(row);return;}const mm=munMarkers[row.municipio];if(mm){leafletMap.setView(mm.getLatLng(),13,{animate:true});mm.openPopup();}else openFicha(row);});
 }
 
 function renderDashboard(){
@@ -1076,9 +1136,9 @@ function renderDashboard(){
   const rows=filteredRows;
   if(!rows.length){document.getElementById('content').innerHTML='<div class="placeholder"><strong>Sin resultados</strong>Prueba a cambiar los filtros</div>';return;}
 
-  const munC={},munBase={},tipoC={},tipoBase={},tipoMargen={};
+  const munC={},munBase={},tipoC={},tipoBase={};
   const provCount={},provDiasSub={},provBase={};
-  let sBase=0,sBaseSub=0,sTotal=0,nPrior=0;
+  let sBase=0,sTotal=0,nPrior=0;
   const mesesSolicitud={},mesesEnviado={},mesesApr={},mesesFact={},mesesRiesgo={};
   let sumaDiasTram=0,nDiasTram=0,nEnPlazo=0,nTotal3d=0;
 
@@ -1129,8 +1189,7 @@ function renderDashboard(){
     if(r.tipologia){
       tipoC[r.tipologia]=(tipoC[r.tipologia]||0)+1;
       tipoBase[r.tipologia]=(tipoBase[r.tipologia]||0)+r.base;
-      tipoMargen[r.tipologia]=(tipoMargen[r.tipologia]||[]).concat(r.margenPct);
-    }
+          }
 
     if(r.prov){
       provCount[r.prov]=(provCount[r.prov]||0)+1;
@@ -1146,8 +1205,7 @@ function renderDashboard(){
     if(r.diasAprobacionAvra !== null){ sumDiasAprobacionAvra += r.diasAprobacionAvra; nDiasAprobacionAvra++; }
 
     sBase+=r.base;
-    sBaseSub+=r.baseSub;
-    sTotal+=r.total;
+        sTotal+=r.total;
 
     if(r.prior)nPrior++;
     if(r.diasTramitacion!==null){sumaDiasTram+=r.diasTramitacion;nDiasTram++;}
@@ -1170,11 +1228,9 @@ function renderDashboard(){
   const facturadas=rowsProc.filter(r=>r.esFacturada||r.obraLabel==='Facturado');
 
   const munArr=Object.entries(munC).map(([n,v])=>({name:n,count:v,base:munBase[n]||0})).sort((a,b)=>b.count-a.count);
-  const tipoArr=Object.entries(tipoC).map(([n,v])=>{
-    const arrM=tipoMargen[n]||[0];
-    const avgM=arrM.reduce((a,b)=>a+b,0)/arrM.length;
-    return {name:n,count:v,base:tipoBase[n]||0,margenAvg:avgM};
-  }).sort((a,b)=>b.base-a.base);
+  const tipoArr=Object.entries(tipoC).map(([n,v])=>({
+    name:n,count:v,base:tipoBase[n]||0
+  })).sort((a,b)=>b.base-a.base);
 
   const tipologiaArraySorted = Object.entries(tipologiaData).map(([name, data])=>({name, ...data})).sort((a,b)=>b.base - a.base);
   const aprobacionMesArraySorted = Object.entries(aprobacionMesData).map(([mKey, data])=>({mKey, label: monthLabel(mKey), ...data})).sort((a,b)=>a.mKey.localeCompare(b.mKey));
@@ -1183,16 +1239,13 @@ function renderDashboard(){
     const arrD=provDiasSub[n]||[0];
     const avgD=arrD.length?Math.round(arrD.reduce((a,b)=>a+b,0)/arrD.length):0;
     const pBase=provBase[n]||0;
-    const pMargenEuro=rows.filter(r=>r.prov===n).reduce((acc,r)=>acc+r.margenEuro,0);
-    const pMargenPct=pBase>0?(pMargenEuro/pBase)*100:0;
     const pEnCurso=rows.filter(r=>r.prov===n && r.estado!=='Facturado' && r.estado!=='No procede').length;
-    return {name:n,count:v,base:pBase,diasAvg:avgD,margenEuro:pMargenEuro,margenPct:pMargenPct,enCurso:pEnCurso};
+    return {name:n,count:v,base:pBase,diasAvg:avgD,enCurso:pEnCurso};
   }).sort((a,b)=>b.base-a.base);
 
   const allMeses=[...new Set([...Object.keys(mesesSolicitud),...Object.keys(mesesEnviado),...Object.keys(mesesApr),...Object.keys(mesesFact)])].sort();
 
-  const margenBrutoGlobalEuro = sBase - sBaseSub;
-  const pctMargenBrutoGlobal = sBase > 0 ? (margenBrutoGlobalEuro / sBase) * 100 : 0;
+  
 
   document.getElementById('content').innerHTML=`
 
@@ -1240,11 +1293,11 @@ function renderDashboard(){
       <div class="kpi-value" style="color:var(--purple)">${facturadas.length}</div>
       <div class="kpi-sub">Suma: ${euro2(facturadas.reduce((s,r)=>s+r.base,0))}</div>
     </div>
-    <div class="kpi-card" id="kpiMargenBruto">
+    <div class="kpi-card" id="kpiBaseTotal">
       <div class="kpi-icon" style="background:var(--green-xlight)"><svg fill="none" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
-      <div class="kpi-label">Margen Bruto Global</div>
-      <div class="kpi-value" style="color:var(--green)">${fmtNum(pctMargenBrutoGlobal)}%</div>
-      <div class="kpi-sub">Beneficio: ${euro2(margenBrutoGlobalEuro)}</div>
+      <div class="kpi-label">8. Importe Base Acumulado</div>
+      <div class="kpi-value" style="color:var(--green)">${euro(sBase)}</div>
+      <div class="kpi-sub">Total c/IVA: ${euro2(sTotal)}</div>
     </div>
   </div>
 
@@ -1303,56 +1356,42 @@ function renderDashboard(){
 
   <div class="block-title" style="margin-top:8px"><span>4</span>Análisis Avanzado de Eficiencia, Cuellos de Botella y Proveedores</div>
 
-  <div class="charts-grid">
-    <div class="card">
-      <div class="card-header"><span class="card-title">Análisis de Cuellos de Botella (Tiempos muertos por fase)</span><span class="card-subtitle">Media en días hábiles</span></div>
-      <div class="chart-wrap h260"><canvas id="cuelloBotellaChart"></canvas></div>
+  <div class="card" style="margin-bottom:20px; padding:16px;">
+    <div class="card-header" style="margin-bottom:12px;">
+      <span class="card-title" style="font-size:14px; font-weight:700;">📍 Mapa Interactivo de Incidencias Geolocalizadas</span>
+      <span class="card-subtitle">Visualización completa, filtros por estado y detalle de expedientes</span>
     </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">1. Respuesta Media por Subcontrata</span><span class="card-subtitle">Días hábiles en elaborar presupuesto</span></div>
-      <div class="chart-wrap h260"><canvas id="provChart"></canvas></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Matriz de Carga de Trabajo y Rendimiento por Subcontrata</span>
-      <span class="card-subtitle">Volumen, incidencias en curso y rentabilidad</span>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Proveedor / Subcontrata</th>
-            <th>Total Expedientes</th>
-            <th>En Curso</th>
-            <th>Base Acumulada (€)</th>
-            <th>Margen Bruto (€)</th>
-            <th>% Margen Medio</th>
-            <th>Días Medios Presupuesto</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${provArr.map(p => `
-            <tr style="cursor:pointer" onclick="openModal('Incidencias de la subcontrata: ${p.name}', filteredRows.filter(r => r.prov === '${p.name}'))">
-              <td><strong>${p.name}</strong></td>
-              <td>${p.count}</td>
-              <td><span class="badge ${p.enCurso>0?'warn':'ok'}">${p.enCurso} activas</span></td>
-              <td>${euro2(p.base)}</td>
-              <td>${euro2(p.margenEuro)}</td>
-              <td><strong style="color:${p.margenPct<20?'var(--danger)':'var(--green)'}">${fmtNum(p.margenPct)}%</strong></td>
-              <td>${p.diasAvg} días lab.</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+    <div class="map-shell" style="height:550px; min-height:450px;">
+      <div class="map-sidebar">
+        <div><div class="map-sidebar-title">Estado · Filtrar</div><div id="mapLegend" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;"></div></div>
+        <div id="geoProgress" style="display:none;" class="geo-progress"><div id="geoText">Geocodificando…</div><div class="geo-bar-wrap"><div class="geo-bar" id="geoBar" style="width:0%"></div></div></div>
+        <div class="map-stats" id="mapStats"></div>
+        <div class="map-sidebar-title" style="margin-top:4px;">Incidencias</div>
+        <div class="map-inc-list" id="mapIncList"></div>
+        <div id="mapNoUbicadas" style="display:none;background:var(--warning-light);border:1.5px solid #fde68a;border-radius:var(--r-sm);padding:10px 12px;margin-top:8px;"></div>
+      </div>
+      
+      <div style="position:relative; flex:1; height:100%;">
+        <div id="map" style="width:100%; height:100%;"></div>
+        
+        <!-- PANEL DRAWER FLOTANTE DE DETALLE RÁPIDO EN MAPA -->
+        <div id="mapDetailDrawer">
+          <div class="drawer-hdr">
+            <h3 id="drawerTitle">Detalle de Incidencia</h3>
+            <button class="modal-close" onclick="closeMapDrawer()">✕</button>
+          </div>
+          <div class="drawer-body" id="drawerBody">
+            <!-- Se rellena dinámicamente -->
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="charts-grid">
     <div class="card">
-      <div class="card-header"><span class="card-title">2. Rentabilidad y Margen Bruto</span><span class="card-subtitle">Base SERVEO vs % Margen por Tipología</span></div>
-      <div class="chart-wrap h260"><canvas id="rentabilidadChart"></canvas></div>
+      <div class="card-header"><span class="card-title">2. Importe Base SERVEO por Tipología</span><span class="card-subtitle">Distribución del volumen económico en €</span></div>
+      <div class="chart-wrap h260"><canvas id="volumenTipologiaChart"></canvas></div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">3. Embudo Operativo de Tramitación</span><span class="card-subtitle">Conversión por fases del servicio</span></div>
@@ -1445,7 +1484,7 @@ function renderDashboard(){
     kpiPdteApr:  {title:'6. Pendiente de aprobación (sin "No procede")', fn:r=>r.estado==='Pdte. aprobación' && !r.tipologia.toUpperCase().includes('NO PROCEDE')},
     kpiFacturadas:{title:'7. Incidencias facturadas (sin "No procede")', fn:r=>(r.esFacturada||r.obraLabel==='Facturado') && r.estado!=='No procede'&&!r.tipologia.toUpperCase().includes('NO PROCEDE')},
     kpiNoProcede:{title:'8. Incidencias que no proceden', fn:r=>r.estado==='No procede'||r.tipologia.toUpperCase().includes('NO PROCEDE')},
-    kpiMargenBruto:{title:'Incidencias con Margen Bruto Calculado', fn:r=>r.base>0},
+    kpiBaseTotal:{title:'8. Incidencias con Importe Base', fn:r=>r.base>0},
     kpiVencidas: {title:'9. INCIDENCIAS VENCIDAS (>60 días hábiles desde aprobación AVRA)', fn:r=>r.pen60==='vencida'},
     kpiAviso:    {title:'10. Aviso de incidencias <15 días (>45 días hábiles)', fn:r=>r.aviso15===true},
     kpiPlazo:    {title:'11. Incidencias en plazo (≤60 días hábiles)', fn:r=>r.enPlazoPlat===true},
@@ -1455,70 +1494,16 @@ function renderDashboard(){
   };
   Object.entries(kpiMap).forEach(([id,{title,fn}])=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>openModal(title,filteredRows.filter(fn)));});
 
-  if(document.getElementById('cuelloBotellaChart')){
-    const avgSolSub = nDiasSolicitudSub > 0 ? (sumDiasSolicitudSub / nDiasSolicitudSub).toFixed(1) : 0;
-    const avgEnvAvra = nDiasEnvioAvra > 0 ? (sumDiasEnvioAvra / nDiasEnvioAvra).toFixed(1) : 0;
-    const avgAprAvra = nDiasAprobacionAvra > 0 ? (sumDiasAprobacionAvra / nDiasAprobacionAvra).toFixed(1) : 0;
+  // Inicializar renderizado del mapa integrado directamente en el Dashboard
+  renderMap();
 
-    const c = new Chart(document.getElementById('cuelloBotellaChart'), {
-      type: 'bar',
-      data: {
-        labels: ['1. Solicitud → Ppto. Subcontrata', '2. Ppto. Subcontrata → Envío AVRA', '3. Envío AVRA → Aprobación AVRA'],
-        datasets: [{
-          label: 'Días hábiles medios de espera',
-          data: [avgSolSub, avgEnvAvra, avgAprAvra],
-          backgroundColor: ['#f4a261', '#457b9d', '#2d6a4f'],
-          borderRadius: 6
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { x: { title: { display: true, text: 'Días hábiles promedio' } } }
-      }
-    });
-    charts.push(c);
-  }
-
-  if(provArr.length && document.getElementById('provChart')){
-    const c = new Chart(document.getElementById('provChart'), {
-      type: 'bar',
-      data: {
-        labels: provArr.map(p=>p.name),
-        datasets: [{
-          label: 'Días hábiles medios',
-          data: provArr.map(p=>p.diasAvg),
-          backgroundColor: '#457b9d',
-          borderRadius: 6
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        onClick: (e, items) => {
-          if (items.length) {
-            const provName = provArr[items[0].index].name;
-            openModal(`Incidencias de la subcontrata: ${provName}`, filteredRows.filter(r => r.prov === provName));
-          }
-        },
-        plugins: { legend: { display: false } },
-        scales: { x: { title: { display: true, text: 'Días hábiles' } } }
-      }
-    });
-    charts.push(c);
-  }
-
-  if(tipoArr.length && document.getElementById('rentabilidadChart')){
-    const c = new Chart(document.getElementById('rentabilidadChart'), {
+  if(tipoArr.length && document.getElementById('volumenTipologiaChart')){
+    const c = new Chart(document.getElementById('volumenTipologiaChart'), {
       type: 'bar',
       data: {
         labels: tipoArr.map(t=>t.name||'Sin tipología'),
         datasets: [
-          { label: 'Base SERVEO (€)', data: tipoArr.map(t=>Math.round(t.base)), backgroundColor: '#2d6a4f', borderRadius: 4, yAxisID: 'y' },
-          { label: '% Margen Bruto', data: tipoArr.map(t=>parseFloat(t.margenAvg.toFixed(2))), type: 'line', borderColor: '#e63946', backgroundColor: '#e63946', pointRadius: 5, yAxisID: 'y2' }
+          { label: 'Base SERVEO (€)', data: tipoArr.map(t=>Math.round(t.base)), backgroundColor: '#2d6a4f', borderRadius: 6 }
         ]
       },
       options: {
@@ -1530,10 +1515,9 @@ function renderDashboard(){
             openModal(`Incidencias por Tipología: ${tipoName}`, filteredRows.filter(r => r.tipologia === tipoName));
           }
         },
-        plugins: { legend: { position: 'top' } },
+        plugins: { legend: { display: false } },
         scales: {
-          y: { title: { display: true, text: 'Volumen Base (€)' } },
-          y2: { position: 'right', grid: { display: false }, title: { display: true, text: '% Margen' }, ticks: { callback: v => v + '%' } }
+          y: { title: { display: true, text: 'Volumen Base (€)' }, ticks: { callback: v => '€' + Math.round(v/1000) + 'k' } }
         }
       }
     });
@@ -1674,8 +1658,7 @@ async function loadData(){
     filteredRows=[...rawRows];
     populateFiltros();
     const n=rawRows.length;
-    const nb=document.getElementById('navMapBadge');if(nb)nb.textContent=n;
-    const bnb=document.getElementById('bnMapBadge');if(bnb)bnb.textContent=n;
+    
     if(currentTab==='dash')renderDashboard();else renderMap();
     document.getElementById('statusText').textContent='Act. '+new Date().toLocaleTimeString('es-ES');
   }catch(err){
@@ -1687,8 +1670,7 @@ async function loadData(){
 function switchTab(tab){
   currentTab=tab;
   document.getElementById('navDash').classList.toggle('active',tab==='dash');
-  document.getElementById('navMap').classList.toggle('active',tab==='map');
-  document.getElementById('dashTab').style.display=tab==='dash'?'block':'none';
+    document.getElementById('dashTab').style.display=tab==='dash'?'block':'none';
   document.getElementById('dashTab-filters').style.display=tab==='dash'?'block':'none';
   document.getElementById('mapTab').style.display=tab==='map'?'block':'none';
   if(tab==='map')renderMap();
@@ -1699,11 +1681,6 @@ document.getElementById('bnDash').addEventListener('click',()=>{
   document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('bnDash').classList.add('active');
 });
-document.getElementById('bnMap').addEventListener('click',()=>{
-  switchTab('map');
-  document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
-  document.getElementById('bnMap').classList.add('active');
-});
 document.getElementById('bnFilter').addEventListener('click',openDrawer);
 document.getElementById('bnRefresh').addEventListener('click',loadData);
 document.getElementById('drawerClose').addEventListener('click',closeDrawer);
@@ -1712,7 +1689,6 @@ document.getElementById('btnAplicar2').addEventListener('click',()=>{syncBarToDr
 document.getElementById('btnLimpiar2').addEventListener('click',()=>{limpiarFiltros();closeDrawer();});
 
 document.getElementById('navDash').addEventListener('click',()=>switchTab('dash'));
-document.getElementById('navMap').addEventListener('click',()=>switchTab('map'));
 document.getElementById('navRefresh').addEventListener('click',loadData);
 document.getElementById('btnAplicar').addEventListener('click',applyFilters);
 document.getElementById('btnLimpiar').addEventListener('click',limpiarFiltros);
@@ -1726,6 +1702,7 @@ document.getElementById('modalBody').addEventListener('click',e=>{const el=e.tar
 
 loadData();
 setInterval(loadData,REFRESH_MS);
+setInterval(()=>{if(currentTab==='dash'||currentTab==='map')refreshMapViewport();},60000);
 </script>
 </body>
 </html>
